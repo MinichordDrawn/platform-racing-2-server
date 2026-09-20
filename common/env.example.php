@@ -3,6 +3,15 @@
 $BLS_IP_PREFIX = 'test';
 $SERVER_IP = '127.0.0.1';
 
+// Where requests arrive from.
+//
+// Bans, every rate limit, the registration cap and the address recorded
+// against an account all key on the requester's address, so the server has to
+// know whether it can believe a forwarded one. List the address prefixes a
+// proxy connects from, and leave the list empty when requests arrive here
+// directly. An address offered by anything not listed is ignored.
+$TRUSTED_PROXIES = array();
+
 $DEBUG_MODE = false; // set to true only in local development environments
 
 $DB_ADDRESS = 'mysql';

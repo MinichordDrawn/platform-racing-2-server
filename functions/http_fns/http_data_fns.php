@@ -53,13 +53,57 @@ function find_no_cookie($str, $default = null)
 }
 
 
-// get a user's IP address
+// Get a user's IP address.
+//
+// Behind a proxy the requester's address arrives in a header the proxy sets
+// and the connecting address is the proxy's. Reached directly, the connecting
+// address is the requester's and that header is whatever they cared to send.
+// A request does not say which of the two it is, so the deployment does:
+// $TRUSTED_PROXIES lists the address prefixes a proxy connects from, and an
+// empty list says there is no proxy. Nearly everything the server enforces is
+// keyed on the answer, so an unset value is refused rather than assumed.
 function get_ip()
 {
-    if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-        return $_SERVER['HTTP_CF_CONNECTING_IP'];
+    global $TRUSTED_PROXIES;
+
+    if (!isset($TRUSTED_PROXIES) || !is_array($TRUSTED_PROXIES)) {
+        // The requester is told nothing useful about the deployment; whoever
+        // runs it gets the detail in the log.
+        error_log(
+            'get_ip: $TRUSTED_PROXIES is not set. Set it in env.php to the address prefixes the '
+            . 'proxy connects from, or to an empty array if requests arrive here directly. '
+            . 'Until it is set, no request can be attributed to an address and all are refused.'
+        );
+        throw new Exception('The server is not configured correctly. Please try again later.');
     }
-    return $_SERVER["REMOTE_ADDR"];
+
+    $remote = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : '';
+    $forwarded = isset($_SERVER['HTTP_CF_CONNECTING_IP'])
+        ? trim((string) $_SERVER['HTTP_CF_CONNECTING_IP'])
+        : '';
+
+    if ($forwarded === '') {
+        return $remote;
+    }
+
+    foreach ($TRUSTED_PROXIES as $prefix) {
+        $prefix = (string) $prefix;
+        if ($prefix !== '' && strpos($remote, $prefix) === 0) {
+            return $forwarded;
+        }
+    }
+
+    // A forwarded address from somewhere that is not the proxy is not this
+    // deployment's to believe. Record it once per run: a deployment that turns
+    // out to be behind a proxy after all will show a steady stream of these
+    // from the one address that is really its proxy.
+    static $noted = false;
+    if ($noted === false) {
+        $noted = true;
+        error_log("get_ip: ignored a forwarded address offered by $remote, which is not a trusted proxy");
+    }
+
+    return $remote;
 }
 
 
