@@ -11,6 +11,7 @@ require_once QUERIES_DIR . '/prize_actions.php';
 
 $ip = get_ip();
 $contest_id = (int) find('contest_id', 0);
+$token = default_post('token', '');
 $action = find('action', 'form');
 
 try {
@@ -29,9 +30,6 @@ try {
     // determine user id
     $user_id = (int) token_login($pdo);
     $is_staff = is_staff($pdo, $user_id, false);
-
-    // the request has to carry the session token as well as the cookie
-    require_posted_token($pdo, $user_id, $token);
     $is_mod = $is_staff->mod;
     $is_admin = $is_staff->admin;
 
@@ -126,6 +124,12 @@ try {
             ."(this should be used to explain why you're awarding this user these prizes)<br>";
         echo '<input type="hidden" name="action" value="award"><br>';
         echo '<input type="hidden" name="contest_id" value="'.(int) $contest->contest_id.'">';
+        // Sent back with the form so the award branch can tell a submission of
+        // this form from a request some other site caused the browser to make.
+        // Another site can make the browser send its cookies, but cannot read
+        // them to fill this in.
+        $safe_token = htmlspecialchars($_COOKIE['token'], ENT_QUOTES);
+        echo "<input type='hidden' name='token' value='$safe_token'>";
 
         echo '<input type="submit" value="Award Prize(s)">&nbsp;(no confirmation!)';
         echo '</form>';
@@ -153,8 +157,10 @@ try {
         // check referrer
         require_trusted_ref('award prizes');
 
+        // the request has to carry the session token as well as the cookie
+        require_posted_token($pdo, $user_id, $token);
+
         // make some nice variables
-$token = default_post('token', '');
         $winner_name = default_post('winner_name', '');
         $comment = default_post('comment', '');
 

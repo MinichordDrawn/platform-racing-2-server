@@ -37,6 +37,12 @@ try {
     // check their login
     $user_id = token_login($pdo, false);
 
+    // The request has to carry the session token as well as the cookie. This
+    // covers every path below it, the owner editing their own guild included:
+    // that path writes too, and the cookie says as little about who asked for
+    // it as it does on the staff path.
+    require_posted_token($pdo, $user_id, $token);
+
     // more rate limiting
     rate_limit('guild-edit-attempt-'.$user_id, 10, 3, $rl_msg);
 
@@ -57,9 +63,6 @@ try {
             throw new Exception('You are not the owner of this guild.');
         } else {
             $mod = is_staff($pdo, $user_id);
-
-    // the request has to carry the session token as well as the cookie
-    require_posted_token($pdo, $user_id, $token);
             if ($mod->trial) {
                 throw new Exception('You lack the power to edit this guild.');
             }

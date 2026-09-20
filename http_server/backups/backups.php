@@ -27,20 +27,23 @@ try {
 
     // output mod nav if they're a mod
     $staff = is_staff($pdo, $user_id, false);
-
-    // the request has to carry the session token as well as the cookie
-    require_posted_token($pdo, $user_id, $token);
     output_header('Level Backups', $staff->mod, $staff->admin);
 
     // restore a backup
-    $action = default_get('action');
+    $action = default_post('action');
 
     if ($action === 'restore') {
+        // A restore replaces a level, so it is a submission of the form below
+        // rather than a request some other site caused the browser to make.
+        // Another site can make the browser send its cookies, but cannot read
+        // them to fill this in.
+        require_posted_token($pdo, $user_id, $token);
+
         // check referrer
         require_trusted_ref('restore level backups');
 
         // get the level_id that this backup_id points to
-        $backup_id = default_get('backup_id');
+        $backup_id = default_post('backup_id');
         $row = level_backup_select($pdo, $backup_id);
         if ((int) $row->user_id !== $user_id) {
             throw new Exception('You do not own this backup.');
@@ -119,11 +122,18 @@ try {
     echo '<br/>';
     $backups = level_backups_select_by_user($pdo, $user_id);
     if (!empty($backups)) {
+        $safe_token = htmlspecialchars($_COOKIE['token'], ENT_QUOTES);
         foreach ($backups as $row) {
             $title = htmlspecialchars($row->title, ENT_QUOTES);
             $date = date('M j, Y g:i A', $row->time);
-            echo "<p>$date: <b>$title</b> v$row->version "
-                ."(<a href='?action=restore&backup_id=$row->backup_id'>restore</a>)</p>";
+            $backup_id = (int) $row->backup_id;
+            echo "<div style='margin: 1em 0;'>$date: <b>$title</b> v$row->version "
+                ."<form method='post' style='display: inline;'>"
+                ."<input type='hidden' name='action' value='restore'>"
+                ."<input type='hidden' name='backup_id' value='$backup_id'>"
+                ."<input type='hidden' name='token' value='$safe_token'>"
+                ."<input type='submit' value='restore'>"
+                ."</form></div>";
         }
     } else {
         echo "<center>You haven't modified or deleted any levels in the past year.</center>";

@@ -151,7 +151,12 @@ try {
             if (!empty($levels)) {
                 $send->version = $version;
             }
-            $send = json_encode($send);
+            // The archive endpoint decides who is asking from the cookie, and
+            // a browser sends that whatever caused the request, so it wants
+            // the token in the body as well. This is the only thing that posts
+            // to it.
+            $send->token = $_COOKIE['token'];
+            $send = json_encode($send, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             echo ""
                     ."<select name='duration'>"
                         ."<option value='3600' selected='selected'>1 Hour</option>"

@@ -27,9 +27,6 @@ try {
     // make sure you're an admin
     $admin = check_moderator($pdo, null, true, 3);
 
-    // the request has to carry the session token as well as the cookie
-    require_posted_token($pdo, $admin->user_id, $token);
-
     // get contest info
     $contest = contest_select($pdo, $contest_id, false, true);
     if ($contest == false || empty($contest)) {
@@ -78,6 +75,12 @@ try {
 
         echo '<input type="hidden" name="action" value="remove">';
         echo '<input type="hidden" name="contest_id" value="'.(int) $contest->contest_id.'"><br><br>';
+        // Sent back with the form so the remove branch can tell a submission
+        // of this form from a request some other site caused the browser to
+        // make. Another site can make the browser send its cookies, but cannot
+        // read them to fill this in.
+        $safe_token = htmlspecialchars($_COOKIE['token'], ENT_QUOTES);
+        echo "<input type='hidden' name='token' value='$safe_token'>";
 
         echo '<input type="submit" value="Remove Contest Prize(s)">&nbsp;(no confirmation!)';
         echo '</form>';
@@ -91,6 +94,9 @@ try {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             throw new Exception('Invalid request type.');
         }
+
+        // the request has to carry the session token as well as the cookie
+        require_posted_token($pdo, $admin->user_id, $token);
 
         // make some variables
         $contest_id = (int) $contest->contest_id;

@@ -21,9 +21,6 @@ try {
     // make sure you're an admin
     $admin = check_moderator($pdo, null, true, 3);
 
-    // the request has to carry the session token as well as the cookie
-    require_posted_token($pdo, $admin->user_id, $token);
-
     // build page
     if ($action === 'lookup') {
         output_header('Update Guild', true, true);
@@ -46,6 +43,12 @@ try {
         echo 'Description of Changes: <input type="text" size="100" name="guild_changes"><br>';
         echo '<input type="hidden" name="action" value="update">';
         echo "<input type='hidden' name='guild_id_submit' value='$guild_id'>";
+        // Sent back with the form so the update branch can tell a submission
+        // of this form from a request some other site caused the browser to
+        // make. Another site can make the browser send its cookies, but cannot
+        // read them to fill this in.
+        $safe_token = htmlspecialchars($_COOKIE['token'], ENT_QUOTES);
+        echo "<input type='hidden' name='token' value='$safe_token'>";
 
         echo '<br/>';
         echo '<input type="submit" value="Submit">&nbsp;(no confirmation!)';
@@ -64,6 +67,10 @@ try {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             throw new Exception('Invalid request type.');
         }
+
+        // the request has to carry the session token as well as the cookie
+        require_posted_token($pdo, $admin->user_id, $token);
+
         // who's doing this
         $admin_ip = get_ip();
 

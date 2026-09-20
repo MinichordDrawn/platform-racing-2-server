@@ -21,9 +21,6 @@ try {
 
     // make sure you're a full moderator
     $mod = check_moderator($pdo);
-
-    // the request has to carry the session token as well as the cookie
-    require_posted_token($pdo, $mod->user_id, $token);
     if ($mod->trial_mod) {
         throw new Exception('You lack the power to access this resource. Please ask a moderator to edit this ban.');
     }
@@ -38,6 +35,9 @@ try {
 
     // if they're trying to update
     if ($action === 'update' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        // the request has to carry the session token as well as the cookie
+        require_posted_token($pdo, $mod->user_id, $token);
+
         // update the ban
         $b_id = (int) default_post('ban_id');
         $type = default_post('type', 'both');
@@ -107,10 +107,17 @@ try {
         // output js
         echo get_lifted_js();
 
+        // Sent back with the form so the update branch can tell a submission
+        // of this form from a request some other site caused the browser to
+        // make. Another site can make the browser send its cookies, but cannot
+        // read them to fill this in.
+        $safe_token = htmlspecialchars($_COOKIE['token'], ENT_QUOTES);
+
         // show the form
         $date_ph = 'placeholder="YYYY-MM-DD HH:MM:SS"';
         echo "<form method='post'>"
             .'<input type="hidden" value="update" name="action">'
+            ."<input type='hidden' value='$safe_token' name='token'>"
             ."<input type='hidden' value='$ban->ban_id' name='ban_id'>"
             .'<p><label for="expire_time">Expire Date: </label>' . get_exp_date_html($expire_date) . "</p>"
             .'<p><label for="type">Type: </label>' . get_type_html($ip_ban, $account_ban) . '</p>'
