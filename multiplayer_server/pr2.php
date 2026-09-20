@@ -57,6 +57,7 @@ require_once PR2_ROOT . '/LoiterDetector.php';
 require_once PR2_ROOT . '/Player.php';
 require_once COMMON_DIR . '/manage_socket/control_auth.php';
 require_once PR2_ROOT . '/PR2SocketServer.php';
+require_once PR2_ROOT . '/PR2ControlServer.php';
 require_once PR2_ROOT . '/PR2Client.php';
 require_once PR2_ROOT . '/PR2ControlClient.php';
 require_once PR2_ROOT . '/PR2VirtualClient.php';
@@ -124,6 +125,6 @@ $server = $daemon->createServer('\pr2\multi\PR2SocketServer', '\pr2\multi\PR2Cli
 
 // the control channel, on its own port, which is not published to players
 output("Starting the control channel on port $PROCESS_PORT...");
-$control = $daemon->createServer('\pr2\multi\PR2SocketServer', '\pr2\multi\PR2ControlClient', 0, $PROCESS_PORT);
+$control = $daemon->createServer('\pr2\multi\PR2ControlServer', '\pr2\multi\PR2ControlClient', 0, $PROCESS_PORT);
 output("Success! Server started" . ($verbose ? ' (in verbose mode)' : '') . ' on ' . date('r', $uptime));
 $daemon->process();

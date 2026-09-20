@@ -162,18 +162,24 @@ class PR2Client extends \chabot\SocketServerClient
         $ip = $this->remote_address;
         $this->ip = $ip;
 
-        $ip_count = @PR2Client::$ip_array[$ip];
-        $ip_count = !isset($ip_count) ? 1 : ++$ip_count;
-        PR2Client::$ip_array[$ip] = $ip_count;
+        // The per-address cap belongs to the player port. A control connection
+        // is not a player and must not spend a player's allowance, or a run of
+        // them would close the game to everyone sharing that address.
+        if (!$this->process) {
+            $ip_count = @PR2Client::$ip_array[$ip];
+            $ip_count = !isset($ip_count) ? 1 : ++$ip_count;
+            PR2Client::$ip_array[$ip] = $ip_count;
 
-        if ($ip_count > 9) {
-            $this->close();
-            $this->onDisconnect();
-        } else {
-            $time = time();
-            $this->last_action = $time;
-            $this->last_user_action = $time;
+            if ($ip_count > 9) {
+                $this->close();
+                $this->onDisconnect();
+                return;
+            }
         }
+
+        $time = time();
+        $this->last_action = $time;
+        $this->last_user_action = $time;
     }
 
 
@@ -204,7 +210,9 @@ class PR2Client extends \chabot\SocketServerClient
             $this->login_id = null;
         }
 
-        if (!$this->subtracted_ip) {
+        // Only a connection that entered the count may leave it, or a control
+        // connection would release an allowance a player is holding.
+        if (!$this->subtracted_ip && !$this->process) {
             $this->subtracted_ip = true;
             $ip = $this->remote_address;
             if (isset(PR2Client::$ip_array[$ip])) {

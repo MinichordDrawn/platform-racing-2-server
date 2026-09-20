@@ -21,6 +21,7 @@ class PR2ControlClient extends PR2Client
         if (!\control_address_allowed($this->ip)) {
             output('Refused a control connection from ' . $this->ip);
             $this->close();
+            $this->onDisconnect();
             return;
         }
 
