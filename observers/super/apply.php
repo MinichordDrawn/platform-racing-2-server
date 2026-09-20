@@ -13,10 +13,19 @@ require_once __DIR__ . '/container.php';
 // the specification fixes, and logs last.
 //
 // The order is not housekeeping. The own store is written before the copies
-// because the own store is the record and the copies are the redundancy, and
-// because a reader compares a copy against its original by reading the copy
-// first -- so a copy can be behind its original and never ahead of it, and an
-// entry ahead has no race to explain it.
+// because the own store is the record and the copies are the redundancy: a
+// copy can therefore be behind its original, and an entry that is genuinely
+// ahead is one the author never published.
+//
+// This used to add that a reader compares a copy against its original by
+// reading the copy first, so an entry ahead has no race to explain it. Half of
+// that was wrong and it cost five spurious halts on a running ring. A reader
+// lists the original during the member pass, at step 4 of the cycle, and reads
+// the copy at step 5 -- the original first, not the copy -- so an author that
+// publishes between those two steps leaves an honest copy above a stale
+// ceiling. Writing in this order is necessary and was never sufficient;
+// procedure K settles it by listing the original again before it accuses
+// anyone.
 
 // SPEC 5: write to a staging name in the same directory, then rename. Readers
 // never see a half-written file and no reader needs retry logic.

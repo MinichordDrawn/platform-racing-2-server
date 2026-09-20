@@ -633,9 +633,44 @@ function procedure_k(Reader $R, string $dir, string $author): void
     // K5 each copy entry.
     $any_in_window = false;
     $any_behind = false;
+    // The ceiling above, re-read, and only if something looks above it. See
+    // below for why; null until it is needed, so the ordinary case pays for no
+    // listing at all.
+    $fresh_max = null;
     foreach ($copy['entries'] as $n => $e) {
         if ($n > $max) {
-            $R->fail('I7', $author, 'a copy entry ahead of the original');
+            // An entry above the ceiling, checked again against a ceiling
+            // taken now.
+            //
+            // The ceiling comes from the member pass, at step 4 of the cycle,
+            // and the copy is read at step 5 -- so the original was listed
+            // *before* the copy, not after it. An author publishes to its own
+            // store first and to the copy second, which is the order it is
+            // required to use, so an author that advances between those two
+            // steps leaves an honest copy sitting one entry above a ceiling
+            // that is simply out of date.
+            //
+            // The design says an entry ahead has no race to explain it. There
+            // is one, and it fired five times in eighty-one thousand cycles on
+            // a running ring -- most often at the observer that makes the most
+            // copy comparisons, which is what a race looks like and what
+            // tampering does not. Each one halted the deployment for a cycle,
+            // and I7 is in the compromise set, so it must be decidable.
+            //
+            // Looking again settles it without weakening anything: a forged
+            // entry is above every ceiling for ever, and a race is above only
+            // the stale one.
+            if ($fresh_max === null) {
+                $fresh_max = $max;
+                foreach ((list_dir($orig_folder) ?? array()) as $name) {
+                    if (is_heartbeat_name($name)) {
+                        $fresh_max = max($fresh_max, sequence_of_name($name));
+                    }
+                }
+            }
+            if ($n > $fresh_max) {
+                $R->fail('I7', $author, 'a copy entry ahead of the original');
+            }
             continue;
         }
         if (isset($orig[$n])) {
