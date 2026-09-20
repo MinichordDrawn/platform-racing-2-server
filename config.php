@@ -36,6 +36,12 @@ $group_colors = [ // group colors defined in client
 
 // call globally needed files
 require_once COMMON_DIR . '/env.php';
+
+// Nothing starts on a secret that is still the one published in the
+// repository. This runs before anything can connect or serve.
+require_once COMMON_DIR . '/env_check.php';
+env_require_secrets_changed();
+
 require_once COMMON_DIR . '/pdo_connect.php';
 require_once COMMON_DIR . '/s3_connect.php';
 require_once ROOT_DIR . '/vend/S3.php';
