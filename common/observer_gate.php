@@ -63,6 +63,52 @@ function observer_gate_members()
 }
 
 
+// What the gate rests on: the paths it reads that the work cannot write.
+//
+// A file is evidence only if the thing being judged cannot produce it, and
+// most of the store tree fails that test from inside a work container. An
+// observer and the work it watches share a container, so they share its
+// mounts: every path the local observer must write in order to publish, the
+// work can write too. Probed from inside a running web container --
+//
+//   FORGEABLE  /stores/web/heartbeat, /stores/web/halt, /stores/web/fault
+//   refused    /stores/web/halts
+//   refused    /stores/{multi,policy,super}/heartbeat
+//
+// -- and no arrangement of flags changes that while the two are in one
+// container. Nor does a signing key: a key the observer can read is a key the
+// work can read, because they run as the same user and an unprivileged
+// container has no way to separate them.
+//
+// Two reads survive, and between them they cover both directions:
+//
+//   `<local>/halts`     where every *other* member relays what it found. Read
+//                       only in the container it names, so the work can
+//                       neither write a halt away nor delete one. This is the
+//                       positive signal, and it arrives for anything any
+//                       member detects -- including this container's own
+//                       observer dying, which its peers report.
+//
+//   `super/heartbeat`   read only everywhere but the super observer's own
+//                       container, so its staleness cannot be concealed. This
+//                       is the absence: an observer that dies stops writing,
+//                       and what the work needs expires on its own without
+//                       anybody having to notice or deliver anything.
+//
+// The gate still reads the rest, and that is deliberate rather than sloppy.
+// The question it answers is *may I work*, so a read the work can tamper with
+// can only ever turn a yes into a no. What turns a no into a yes is this set.
+function observer_gate_authoritative($local)
+{
+    $paths = array();
+    if ($local !== '' && $local !== 'super') {
+        $paths[] = $local . '/halts';
+    }
+    $paths[] = 'super/heartbeat';
+    return $paths;
+}
+
+
 // A heartbeat is bounded (SPEC 3.1) and its size is checked before anything
 // reads its content, so an oversized file never reaches the parser. The number
 // is the one every observer is deployed with.
@@ -253,14 +299,53 @@ function observer_gate_reason(array $settings)
 {
     $stores = $settings['stores'];
     $now    = $settings['now'];
+    $local  = $settings['local'];
 
-    // One: is my own observer alive?
-    $reason = observer_gate_alive($stores, $settings['local'], $settings['local_max_age'], $now);
+    // --- what the gate rests on -------------------------------------------
+    //
+    // These two are first because they are the only reads whose answer the
+    // work could not have written itself. See observer_gate_authoritative().
+
+    // Anything any member found, relayed into a directory this container is
+    // refused a write at. A compromised container cannot delete these.
+    if ($local !== '' && $local !== 'super') {
+        $halts = @scandir($stores . '/' . $local . '/halts');
+        if ($halts === false) {
+            return "the halts directory of $local cannot be read";
+        }
+        foreach ($halts as $n) {
+            if ($n !== '.' && $n !== '..') {
+                return "a halt found by $n has been delivered to $local";
+            }
+        }
+    }
+
+    // The absence half: an observer that dies or is stopped simply stops
+    // writing, and what the work needs expires without anyone noticing or
+    // delivering anything. The work cannot refresh this.
+    $reason = observer_gate_alive($stores, 'super', $settings['super_max_age'], $now);
     if ($reason !== null) {
         return $reason;
     }
 
-    // Two: has anything halted?
+    // --- and everything else ----------------------------------------------
+    //
+    // Read because reading it can only produce more stops, never fewer: the
+    // question is *may I work*, so a forgeable read turns a yes into a no and
+    // never the other way. It stops the honest cases faster than waiting for a
+    // peer to notice, and it is not what any of this rests on.
+
+    // The observer sharing this container. Forgeable by the work, and kept
+    // because in the honest case it is the quickest signal there is -- the
+    // observer and the work share a clock, so the window can sit just above
+    // the cadence with no allowance for skew.
+    if ($local !== '') {
+        $reason = observer_gate_alive($stores, $local, $settings['local_max_age'], $now);
+        if ($reason !== null) {
+            return $reason;
+        }
+    }
+
     foreach (observer_gate_members() as $m) {
         $root = $stores . '/' . $m;
 
@@ -291,14 +376,6 @@ function observer_gate_reason(array $settings)
             if ($n !== '.' && $n !== '..') {
                 return "a halt found by $n has been delivered to $m";
             }
-        }
-    }
-
-    // Three: is the super observer alive?
-    if ($settings['local'] !== 'super') {
-        $reason = observer_gate_alive($stores, 'super', $settings['super_max_age'], $now);
-        if ($reason !== null) {
-            return $reason;
         }
     }
 
