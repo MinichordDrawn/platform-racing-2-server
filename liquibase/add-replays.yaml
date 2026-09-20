@@ -67,6 +67,22 @@ databaseChangeLog:
   - changeSet:
       id: add-replay-server-finish-columns
       author: codex
+      # The create statement above already defines some of these on a new
+      # database, and not others. This changeset exists to bring a database
+      # made before they existed up to date; the precondition is what tells
+      # the two cases apart. Without it the statement runs on a fresh
+      # database and MySQL rejects the duplicate column outright, which
+      # aborts the whole migration and leaves the seed data unloaded.
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: replays
+                columnName: first_server_finish_ms
+        - not:
+            - columnExists:
+                tableName: replay_results
+                columnName: server_finish_ms
       changes:
         - sql:
             dbms: mysql
@@ -74,17 +90,37 @@ databaseChangeLog:
             stripComments: true
             sql: |
               ALTER TABLE replays
-                ADD COLUMN IF NOT EXISTS first_server_finish_ms BIGINT NULL AFTER first_finish_time_ms;
+                ADD COLUMN first_server_finish_ms BIGINT NULL AFTER first_finish_time_ms;
         - sql:
             dbms: mysql
             splitStatements: false
             stripComments: true
             sql: |
               ALTER TABLE replay_results
-                ADD COLUMN IF NOT EXISTS server_finish_ms BIGINT NULL AFTER finish_time_ms;
+                ADD COLUMN server_finish_ms BIGINT NULL AFTER finish_time_ms;
   - changeSet:
       id: add-replay-objective-columns
       author: codex
+      # The create statement above already defines some of these on a new
+      # database, and not others. This changeset exists to bring a database
+      # made before they existed up to date; the precondition is what tells
+      # the two cases apart. Without it the statement runs on a fresh
+      # database and MySQL rejects the duplicate column outright, which
+      # aborts the whole migration and leaves the seed data unloaded.
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: replays
+                columnName: first_objectives_hit
+        - not:
+            - columnExists:
+                tableName: replays
+                columnName: best_objectives_hit
+        - not:
+            - columnExists:
+                tableName: replay_results
+                columnName: objectives_hit
       changes:
         - sql:
             dbms: mysql
@@ -92,24 +128,44 @@ databaseChangeLog:
             stripComments: true
             sql: |
               ALTER TABLE replays
-                ADD COLUMN IF NOT EXISTS first_objectives_hit INT NOT NULL DEFAULT 0 AFTER first_server_finish_ms;
+                ADD COLUMN first_objectives_hit INT NOT NULL DEFAULT 0 AFTER first_server_finish_ms;
         - sql:
             dbms: mysql
             splitStatements: false
             stripComments: true
             sql: |
               ALTER TABLE replays
-                ADD COLUMN IF NOT EXISTS best_objectives_hit INT NOT NULL DEFAULT 0 AFTER first_objectives_hit;
+                ADD COLUMN best_objectives_hit INT NOT NULL DEFAULT 0 AFTER first_objectives_hit;
         - sql:
             dbms: mysql
             splitStatements: false
             stripComments: true
             sql: |
               ALTER TABLE replay_results
-                ADD COLUMN IF NOT EXISTS objectives_hit INT NOT NULL DEFAULT 0 AFTER quit;
+                ADD COLUMN objectives_hit INT NOT NULL DEFAULT 0 AFTER quit;
   - changeSet:
       id: add-replay-participant-stats
       author: codex
+      # The create statement above already defines some of these on a new
+      # database, and not others. This changeset exists to bring a database
+      # made before they existed up to date; the precondition is what tells
+      # the two cases apart. Without it the statement runs on a fresh
+      # database and MySQL rejects the duplicate column outright, which
+      # aborts the whole migration and leaves the seed data unloaded.
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: replay_participants
+                columnName: speed
+        - not:
+            - columnExists:
+                tableName: replay_participants
+                columnName: acceleration
+        - not:
+            - columnExists:
+                tableName: replay_participants
+                columnName: jumping
       changes:
         - sql:
             dbms: mysql
@@ -117,24 +173,36 @@ databaseChangeLog:
             stripComments: true
             sql: |
               ALTER TABLE replay_participants
-                ADD COLUMN IF NOT EXISTS speed INT NULL AFTER username;
+                ADD COLUMN speed INT NULL AFTER username;
         - sql:
             dbms: mysql
             splitStatements: false
             stripComments: true
             sql: |
               ALTER TABLE replay_participants
-                ADD COLUMN IF NOT EXISTS acceleration INT NULL AFTER speed;
+                ADD COLUMN acceleration INT NULL AFTER speed;
         - sql:
             dbms: mysql
             splitStatements: false
             stripComments: true
             sql: |
               ALTER TABLE replay_participants
-                ADD COLUMN IF NOT EXISTS jumping INT NULL AFTER acceleration;
+                ADD COLUMN jumping INT NULL AFTER acceleration;
   - changeSet:
       id: add-levels-replays-public-flag
       author: codex
+      # The create statement above already defines some of these on a new
+      # database, and not others. This changeset exists to bring a database
+      # made before they existed up to date; the precondition is what tells
+      # the two cases apart. Without it the statement runs on a fresh
+      # database and MySQL rejects the duplicate column outright, which
+      # aborts the whole migration and leaves the seed data unloaded.
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: levels
+                columnName: replays_public
       changes:
         - sql:
             dbms: mysql
@@ -142,11 +210,23 @@ databaseChangeLog:
             stripComments: true
             sql: |
               ALTER TABLE levels
-                ADD COLUMN IF NOT EXISTS replays_public TINYINT(1) NOT NULL DEFAULT 0
+                ADD COLUMN replays_public TINYINT(1) NOT NULL DEFAULT 0
                 AFTER bad_hats;
   - changeSet:
       id: add-replay-participant-hat
       author: codex
+      # The create statement above already defines some of these on a new
+      # database, and not others. This changeset exists to bring a database
+      # made before they existed up to date; the precondition is what tells
+      # the two cases apart. Without it the statement runs on a fresh
+      # database and MySQL rejects the duplicate column outright, which
+      # aborts the whole migration and leaves the seed data unloaded.
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: replay_participants
+                columnName: hat
       changes:
         - sql:
             dbms: mysql
@@ -154,10 +234,30 @@ databaseChangeLog:
             stripComments: true
             sql: |
               ALTER TABLE replay_participants
-                ADD COLUMN IF NOT EXISTS hat INT NULL AFTER username;
+                ADD COLUMN hat INT NULL AFTER username;
   - changeSet:
       id: add-replay-hidden-flag
       author: codex
+      # The create statement above already defines some of these on a new
+      # database, and not others. This changeset exists to bring a database
+      # made before they existed up to date; the precondition is what tells
+      # the two cases apart. Without it the statement runs on a fresh
+      # database and MySQL rejects the duplicate column outright, which
+      # aborts the whole migration and leaves the seed data unloaded.
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: replays
+                columnName: hidden
+        - not:
+            - columnExists:
+                tableName: replays
+                columnName: hidden_at_ms
+        - not:
+            - columnExists:
+                tableName: replays
+                columnName: hidden_by_user_id
       changes:
         - sql:
             dbms: mysql
@@ -165,7 +265,7 @@ databaseChangeLog:
             stripComments: true
             sql: |
               ALTER TABLE replays
-                ADD COLUMN IF NOT EXISTS hidden TINYINT(1) NOT NULL DEFAULT 0
+                ADD COLUMN hidden TINYINT(1) NOT NULL DEFAULT 0
                 AFTER server_id;
         - sql:
             dbms: mysql
@@ -173,7 +273,7 @@ databaseChangeLog:
             stripComments: true
             sql: |
               ALTER TABLE replays
-                ADD COLUMN IF NOT EXISTS hidden_at_ms BIGINT NULL
+                ADD COLUMN hidden_at_ms BIGINT NULL
                 AFTER hidden;
         - sql:
             dbms: mysql
@@ -181,5 +281,5 @@ databaseChangeLog:
             stripComments: true
             sql: |
               ALTER TABLE replays
-                ADD COLUMN IF NOT EXISTS hidden_by_user_id INT NULL
+                ADD COLUMN hidden_by_user_id INT NULL
                 AFTER hidden_at_ms;
