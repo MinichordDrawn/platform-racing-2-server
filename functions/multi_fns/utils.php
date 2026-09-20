@@ -2,6 +2,57 @@
 
 
 // get the next login id
+// How far below its own measurement the server will believe a client's race
+// time, in milliseconds.
+//
+// The server's figure is taken when the finish packet arrives, so it carries
+// the delay in getting there. The client's own figure does not, which is why
+// it is worth having. This is how much of a difference that can account for.
+// $RACE_FINISH_ALLOWANCE_MS overrides it; a value that is not a positive
+// number is ignored rather than read as no bound.
+function race_finish_allowance_ms()
+{
+    global $RACE_FINISH_ALLOWANCE_MS;
+
+    if (isset($RACE_FINISH_ALLOWANCE_MS) && (int) $RACE_FINISH_ALLOWANCE_MS > 0) {
+        return (int) $RACE_FINISH_ALLOWANCE_MS;
+    }
+
+    return 5000;
+}
+
+
+// The race time to record, given what the client reported and what the server
+// measured.
+//
+// Signing a packet says who sent it, not whether what it says is true: whoever
+// runs the client holds its key. So the time has to stand up on its own. A
+// genuine one is at most what the server saw, since the server's clock ran
+// until the packet arrived, and not further below it than the connection could
+// account for. Anything else, and what the server measured is used, which
+// loses a little accuracy for that finish and nothing else.
+function accepted_finish_ms($local_finish_ms, $server_finish_ms)
+{
+    $server_finish_ms = (int) $server_finish_ms;
+
+    if (!is_numeric($local_finish_ms)) {
+        return $server_finish_ms;
+    }
+
+    $claimed = (int) $local_finish_ms;
+
+    if ($claimed <= 0 || $claimed > $server_finish_ms) {
+        return $server_finish_ms;
+    }
+
+    if ($claimed < $server_finish_ms - race_finish_allowance_ms()) {
+        return $server_finish_ms;
+    }
+
+    return $claimed;
+}
+
+
 // A key for one connection, used to sign the packets it sends.
 //
 // Drawn per session rather than shared, so that holding one connection's key

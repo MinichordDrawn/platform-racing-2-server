@@ -820,11 +820,6 @@ class Game extends Room
             && $player->race_stats->drawing === false
             && $this->begun === true
         ) {
-            $local_finish_ms = is_numeric($local_finish_ms) ? (int) $local_finish_ms : null;
-            if ($local_finish_ms !== null && $local_finish_ms <= 0) {
-                $local_finish_ms = null;
-            }
-
             // get/format/validate/set finish time
             $finish_microtime = microtime(true);
             $full_time = $finish_microtime - $this->start_time;
@@ -832,7 +827,12 @@ class Game extends Room
             $broadcast_time = $this->timeFormat($full_time, 3);
             $finish_time = $finish_time > 31536000 ? 0 : $finish_time; // if the race time > 1 year, set it to 0
             $finish_time_ms = (int) round($full_time * 1000);
-            $effective_finish_ms = $local_finish_ms !== null ? $local_finish_ms : $finish_time_ms;
+
+            // The client reports its own time so that a slow connection is not
+            // charged for time the player did not spend racing. It is used
+            // only where it agrees with what the server itself measured, since
+            // nothing stops a client naming any time it likes.
+            $effective_finish_ms = \accepted_finish_ms($local_finish_ms, $finish_time_ms);
             $player->race_stats->local_finish_ms = $effective_finish_ms;
             $player->race_stats->server_finish_ms = $finish_time_ms;
             $this->setFinishTime($player, $finish_time, $effective_finish_ms, $finish_time_ms);
