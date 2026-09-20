@@ -11,6 +11,24 @@ namespace pr2obs\super;
 //
 // SPEC.md sections 3 and 4.
 
+// The ring, named rather than discovered.
+//
+// Membership used to be whatever directories were under the store root. The
+// store root is owned by the user the work runs as, so a container could add a
+// position to its own observer's ring by creating a directory, and could
+// remove one by removing a directory. The second is the dangerous half: a
+// position that appears has no heartbeat folder and reads as a member that
+// never ran, which is loud, while a position that disappears simply shortens
+// the list and every remaining member goes on agreeing with itself about a
+// ring that no longer holds it. A member can leave without anybody's assertion
+// failing, which is the retirement gap by another route.
+//
+// The deployment already stated this once, in the gate every runtime reads. A
+// fact stated in one place and discovered in another is a fact the two can
+// disagree about, and only the discovered one can be made to lie from inside a
+// container.
+const RING_MEMBERS = array('web', 'multi', 'policy', 'super');
+
 const KIND_HEARTBEAT = 'heartbeat';
 const KIND_FAULT     = 'fault';
 const KIND_HALT      = 'halt';

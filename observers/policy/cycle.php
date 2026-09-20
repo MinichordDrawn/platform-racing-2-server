@@ -193,13 +193,11 @@ function run_cycle(array $config): array
     // observer carries: that is what lets a deployed member appear with no
     // announcement, and what makes a stranger impossible, since a stranger has
     // nowhere to write.
-    $members = array();
-    foreach ((list_dir($R->stores) ?? array()) as $name) {
-        if (is_dir(join_path($R->stores, $name))) {
-            $members[] = $name;
-        }
-    }
-    $members = identity_order($members);
+    // The ring is what the deployment declares it to be, not what happens to
+    // be on disk. See RING_MEMBERS. A store root that is missing is a member
+    // whose store is missing, which the reads below report; a directory that
+    // is not a member is not a member whatever it is named.
+    $members = identity_order(RING_MEMBERS);
     $R->others = array_values(array_diff($members, array($R->identity)));
     $R->unchanged = $config['unchanged'] ?? array();
 
