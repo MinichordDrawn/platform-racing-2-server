@@ -1,4 +1,8 @@
-FROM openjdk:12
+# The `openjdk` repository has been withdrawn from Docker Hub -- removed, not
+# merely deprecated -- so this image could not be built at all, and with it
+# the database schema could not be created. eclipse-temurin is the successor.
+# Java 11 rather than a newer one, because Liquibase 3.8.2 is from 2019.
+FROM eclipse-temurin:11-jdk
 
 ENV LIQUIBASE_VERSION="3.8.2" \
     LIQUIBASE_DRIVER="com.mysql.cj.jdbc.Driver" \
@@ -10,6 +14,11 @@ ENV LIQUIBASE_VERSION="3.8.2" \
 
 COPY docker/init-liquibase.sh /scripts/init-liquibase.sh
 COPY docker/wait-for-it.sh /scripts/wait-for-it.sh
+
+# curl is not in the base image, and both downloads below need it.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # install liquibase
 RUN curl -L -o /tmp/liquibase.tar.gz https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz \

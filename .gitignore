@@ -17,3 +17,6 @@ vendor
 Deploy-Client.ps1
 /clientsrc/pr2/bin
 /clientsrc/RECOVER_pr2
+
+# Local verification overrides; never committed.
+docker/docker-compose.local.yml
