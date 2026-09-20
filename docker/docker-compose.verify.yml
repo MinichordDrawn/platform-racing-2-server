@@ -1,0 +1,43 @@
+# Overrides for a verification run.
+#
+# The point of a verification run is to find out whether the images build and
+# whether the containers come up as the design says they do. It is not to run
+# the game, and nothing here should be able to reach a player, a live service
+# or the network at all.
+#
+# This is an override file rather than an edit to docker-compose.yml, because
+# the thing being verified has to be the file that actually ships. Editing the
+# real compose file to make a test convenient verifies the test.
+#
+# Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.verify.yml <cmd>
+
+services:
+
+  # Nothing is published. Not bound to loopback -- not published at all, so
+  # there is no interface on the host where any of this answers.
+  web:
+    ports: !override []
+  multi:
+    ports: !override []
+  policy:
+    ports: !override []
+  adminer:
+    ports: !override []
+
+  # Said explicitly as well as enforced below, so that reading this file tells
+  # you the proxy is not talking to PR2Hub without having to know what
+  # `internal` does.
+  pr2hub-proxy:
+    environment:
+      - PROXY_UPSTREAM_BASE=http://127.0.0.1:1
+
+networks:
+  default:
+    # The actual guarantee. An internal network has no route off the host, so
+    # no container can reach PR2Hub, PayPal, S3 or anything else, whatever its
+    # configuration says. It is enforced by the network stack rather than by
+    # every service being configured correctly.
+    #
+    # Image builds are unaffected: they do not run on this network.
+    internal: true

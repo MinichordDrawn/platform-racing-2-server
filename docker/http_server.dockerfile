@@ -12,7 +12,6 @@ COPY common/env.example.php /pr2/common/env.php
 COPY docker/http_server_startup.sh /http_server_startup.sh
 
 # Copy in custom config
-COPY docker/prepend_file.ini $PHP_INI_DIR/conf.d/
 COPY docker/pr2hub_proxy.conf /etc/apache2/conf-available/pr2hub_proxy.conf
 
 # Use the default production configuration
@@ -51,6 +50,18 @@ RUN pear config-set php_ini "$PHP_INI_DIR/php.ini" \
 RUN cd /pr2 \
     && curl -sS https://getcomposer.org/installer | php \
     && php composer.phar install --no-dev --optimize-autoloader
+
+# Put config.php in front of every PHP process -- but only from here on.
+#
+# This is what carries the refusal on unchanged secrets to every request and
+# every cron run, and it is deliberately the last thing installed. pecl and
+# composer above are themselves PHP programs, and at build time env.php is
+# the shipped example by construction, because the line above copies it
+# there. Installed any earlier, the check fires during the build and the
+# image cannot be built at all.
+#
+# The check is right and stays exactly as it is. What moved is where it runs.
+COPY docker/prepend_file.ini $PHP_INI_DIR/conf.d/
 
 # Create a cron file that runs the schedules
 COPY docker/minute-cron /etc/cron.d/minute-cron
