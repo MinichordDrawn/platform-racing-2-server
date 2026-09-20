@@ -19,36 +19,41 @@ function replay_insert(
     int $is_pr2hub = 0,
     int $server_id = 0
 ): void {
-    $stmt = $pdo->prepare(
-        'INSERT INTO replays
-            (id, level_id, is_pr2hub, level_version, mode, created_at_ms, duration_ms,
-             first_finisher_user_id, first_finish_time_ms, first_server_finish_ms,
-             first_objectives_hit, best_objectives_hit, participants_count,
-             file_path, file_size, server_id)
-         VALUES
-            (:id, :level_id, :is_pr2hub, :level_version, :mode, :created_at_ms, :duration_ms,
-             :first_finisher_user_id, :first_finish_time_ms, :first_server_finish_ms,
-             :first_objectives_hit, :best_objectives_hit, :participants_count,
-             :file_path, :file_size, :server_id)'
-    );
-    $stmt->execute([
-        ':id' => $id,
-        ':level_id' => $level_id,
-        ':is_pr2hub' => $is_pr2hub,
-        ':level_version' => $level_version,
-        ':mode' => $mode,
-        ':created_at_ms' => $created_at_ms,
-        ':duration_ms' => $duration_ms,
-        ':first_finisher_user_id' => $first_finisher_user_id,
-        ':first_finish_time_ms' => $first_finish_time_ms,
-        ':first_server_finish_ms' => $first_server_finish_ms,
-        ':participants_count' => $participants_count,
-        ':file_path' => $file_path,
-        ':file_size' => $file_size,
-        ':server_id' => $server_id,
-        ':first_objectives_hit' => $first_objectives_hit,
-        ':best_objectives_hit' => $best_objectives_hit,
-    ]);
+    // a record of the race, not the race itself: report and carry on
+    try {
+        $stmt = $pdo->prepare(
+            'INSERT INTO replays
+                (id, level_id, is_pr2hub, level_version, mode, created_at_ms, duration_ms,
+                 first_finisher_user_id, first_finish_time_ms, first_server_finish_ms,
+                 first_objectives_hit, best_objectives_hit, participants_count,
+                 file_path, file_size, server_id)
+             VALUES
+                (:id, :level_id, :is_pr2hub, :level_version, :mode, :created_at_ms, :duration_ms,
+                 :first_finisher_user_id, :first_finish_time_ms, :first_server_finish_ms,
+                 :first_objectives_hit, :best_objectives_hit, :participants_count,
+                 :file_path, :file_size, :server_id)'
+        );
+        $stmt->execute([
+            ':id' => $id,
+            ':level_id' => $level_id,
+            ':is_pr2hub' => $is_pr2hub,
+            ':level_version' => $level_version,
+            ':mode' => $mode,
+            ':created_at_ms' => $created_at_ms,
+            ':duration_ms' => $duration_ms,
+            ':first_finisher_user_id' => $first_finisher_user_id,
+            ':first_finish_time_ms' => $first_finish_time_ms,
+            ':first_server_finish_ms' => $first_server_finish_ms,
+            ':participants_count' => $participants_count,
+            ':file_path' => $file_path,
+            ':file_size' => $file_size,
+            ':server_id' => $server_id,
+            ':first_objectives_hit' => $first_objectives_hit,
+            ':best_objectives_hit' => $best_objectives_hit,
+        ]);
+    } catch (PDOException $e) {
+        error_log("Could not write replay $id: " . $e->getMessage());
+    }
 }
 
 function replay_participant_insert(
@@ -62,25 +67,30 @@ function replay_participant_insert(
     ?int $jump = null
 ): void
 {
-    $stmt = $pdo->prepare(
-        'INSERT INTO replay_participants (replay_id, user_id, username, hat, speed, accel, jump)
-         VALUES (:replay_id, :user_id, :username, :hat, :speed, :accel, :jump)
-         ON DUPLICATE KEY UPDATE
-            username = VALUES(username),
-            hat = VALUES(hat),
-            speed = VALUES(speed),
-            accel = VALUES(accel),
-            jump = VALUES(jump)'
-    );
-    $stmt->execute([
-        ':replay_id' => $replay_id,
-        ':user_id' => $user_id,
-        ':username' => $username,
-        ':hat' => $hat,
-        ':speed' => $speed,
-        ':accel' => $accel,
-        ':jump' => $jump,
-    ]);
+    // a record of the race, not the race itself: report and carry on
+    try {
+        $stmt = $pdo->prepare(
+            'INSERT INTO replay_participants (replay_id, user_id, username, hat, speed, accel, jump)
+             VALUES (:replay_id, :user_id, :username, :hat, :speed, :accel, :jump)
+             ON DUPLICATE KEY UPDATE
+                username = VALUES(username),
+                hat = VALUES(hat),
+                speed = VALUES(speed),
+                accel = VALUES(accel),
+                jump = VALUES(jump)'
+        );
+        $stmt->execute([
+            ':replay_id' => $replay_id,
+            ':user_id' => $user_id,
+            ':username' => $username,
+            ':hat' => $hat,
+            ':speed' => $speed,
+            ':accel' => $accel,
+            ':jump' => $jump,
+        ]);
+    } catch (PDOException $e) {
+        error_log("Could not write replay $replay_id: " . $e->getMessage());
+    }
 }
 
 function replay_participants_select(PDO $pdo, string $replay_id): array
@@ -206,20 +216,25 @@ function replay_result_insert(
     int $quit,
     int $objectives_hit
 ): void {
-    $stmt = $pdo->prepare(
-        'INSERT INTO replay_results (replay_id, position, user_id, username, finish_time_ms, server_finish_ms, quit, objectives_hit)
-         VALUES (:replay_id, :position, :user_id, :username, :finish_time_ms, :server_finish_ms, :quit, :objectives_hit)'
-    );
-    $stmt->execute([
-        ':replay_id' => $replay_id,
-        ':position' => $position,
-        ':user_id' => $user_id,
-        ':username' => $username,
-        ':finish_time_ms' => $finish_time_ms,
-        ':server_finish_ms' => $server_finish_ms,
-        ':quit' => $quit,
-        ':objectives_hit' => $objectives_hit,
-    ]);
+    // a record of the race, not the race itself: report and carry on
+    try {
+        $stmt = $pdo->prepare(
+            'INSERT INTO replay_results (replay_id, position, user_id, username, finish_time_ms, server_finish_ms, quit, objectives_hit)
+             VALUES (:replay_id, :position, :user_id, :username, :finish_time_ms, :server_finish_ms, :quit, :objectives_hit)'
+        );
+        $stmt->execute([
+            ':replay_id' => $replay_id,
+            ':position' => $position,
+            ':user_id' => $user_id,
+            ':username' => $username,
+            ':finish_time_ms' => $finish_time_ms,
+            ':server_finish_ms' => $server_finish_ms,
+            ':quit' => $quit,
+            ':objectives_hit' => $objectives_hit,
+        ]);
+    } catch (PDOException $e) {
+        error_log("Could not write replay $replay_id: " . $e->getMessage());
+    }
 }
 
 function replay_select_by_id(PDO $pdo, string $id)

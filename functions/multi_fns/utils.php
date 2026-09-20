@@ -525,14 +525,13 @@ function __crashHandler($force = false)
     // handle crash
     output("--- SERVER IS CRASHING ---");
     output("Saving data...");
-    $error_details = '';
     if ($error) {
-        $error_details = " Error: [{$error['type']}] {$error['message']} in {$error['file']} on line {$error['line']}";
+        output("Error: [{$error['type']}] {$error['message']} in {$error['file']} on line {$error['line']}");
     }
     shutdown_server(
         null,
         false,
-        'The server is restarting (due to an error), send this to oxy...' . $error_details
+        'The server is restarting (due to an error), please rejoin in a moment.'
     );
     output("Data successfully saved.");
 }

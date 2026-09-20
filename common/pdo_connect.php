@@ -11,9 +11,11 @@ function pdo_connect()
     try {
         global $DB_ADDRESS, $DB_USER, $DB_PASS, $DB_NAME, $DB_PORT, $DEBUG_MODE;
         $pdo = new PDO("mysql:host=$DB_ADDRESS;port=$DB_PORT;dbname=$DB_NAME", $DB_USER, $DB_PASS);
-        if ($DEBUG_MODE) {
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
-        }
+        // chosen here rather than left to the PHP version's default
+        $pdo->setAttribute(
+            PDO::ATTR_ERRMODE,
+            $DEBUG_MODE ? PDO::ERRMODE_WARNING : PDO::ERRMODE_EXCEPTION
+        );
         return $pdo;
     } catch (PDOException $e) {
         // throw a custom error to make sure an error containing db info is not shown

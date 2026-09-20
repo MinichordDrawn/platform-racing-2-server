@@ -634,6 +634,7 @@ function backup_level(
         level_backups_insert($pdo, $uid, $lid, $title, $ver, $live, $rate, $vote, $note, $rank, $song, $plays, $pass, $type, $hats);
         // phpcs:enable
     } catch (Exception $e) {
+        error_log("Level backup failed for level $lid version $ver: " . $e->getMessage());
         $success = false;
     }
 

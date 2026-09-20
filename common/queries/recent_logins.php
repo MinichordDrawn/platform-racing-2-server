@@ -27,19 +27,26 @@ function recent_logins_count_by_user($pdo, $user_id)
 
 function recent_logins_insert($pdo, $user_id, $ip, $country_code)
 {
-    $stmt = $pdo->prepare('
-        INSERT INTO recent_logins
-           SET user_id = :user_id,
-               ip = :ip,
-               country = :country_code,
-               date = NOW()
-        ');
-    $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
-    $stmt->bindValue(':ip', $ip, PDO::PARAM_STR);
-    $stmt->bindValue(':country_code', $country_code, PDO::PARAM_STR);
-    $result = $stmt->execute();
+    // a login that cannot be recorded is still a login; report it and carry on
+    try {
+        $stmt = $pdo->prepare('
+            INSERT INTO recent_logins
+               SET user_id = :user_id,
+                   ip = :ip,
+                   country = :country_code,
+                   date = NOW()
+            ');
+        $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+        $stmt->bindValue(':ip', $ip, PDO::PARAM_STR);
+        $stmt->bindValue(':country_code', $country_code, PDO::PARAM_STR);
+        $result = $stmt->execute();
+    } catch (PDOException $e) {
+        error_log("Could not record a login for user #$user_id: " . $e->getMessage());
+        return false;
+    }
 
     if ($result === false) {
+        error_log("Could not record a login for user #$user_id.");
         return false;
     }
 
