@@ -586,12 +586,26 @@ class Player
     }
 
 
-    public function setCustomizeInfo($data)
+    // Handed the fields that were read. Taking the packet apart into fifteen
+    // names in one assignment left every one of them unset when fewer arrived,
+    // and ignored anything that arrived past the fifteenth.
+    public function setCustomizeInfo(array $fields)
     {
-        list($hat_color, $head_color, $body_color, $feet_color,
-        $hat_color_2, $head_color_2, $body_color_2, $feet_color_2,
-        $hat, $head, $body, $feet,
-        $speed, $acceleration, $jumping) = explode('`', $data);
+        $hat_color = $fields['hat_color'];
+        $head_color = $fields['head_color'];
+        $body_color = $fields['body_color'];
+        $feet_color = $fields['feet_color'];
+        $hat_color_2 = $fields['hat_color_2'];
+        $head_color_2 = $fields['head_color_2'];
+        $body_color_2 = $fields['body_color_2'];
+        $feet_color_2 = $fields['feet_color_2'];
+        $hat = $fields['hat'];
+        $head = $fields['head'];
+        $body = $fields['body'];
+        $feet = $fields['feet'];
+        $speed = $fields['speed'];
+        $acceleration = $fields['acceleration'];
+        $jumping = $fields['jumping'];
 
         $this->hat_color = $hat_color;
         $this->head_color = $head_color;

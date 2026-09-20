@@ -40,6 +40,11 @@ function client_set_right_room($socket, $data)
 // set the chat room
 function client_set_chat_room($socket, $data)
 {
+    // The room name goes into the list of rooms every player is shown, so an
+    // added separator would add fields to that list.
+    $fields = packet_fields($data, array('name' => 'text'));
+    $data = $fields['name'];
+
     $player = $socket->getPlayer();
     $group = $player->group;
     if (isset($player->chat_room)) {
@@ -148,8 +153,30 @@ function client_get_customize_info($socket)
 // sets info for the character
 function client_set_customize_info($socket, $data)
 {
+    // Four colours, four second colours, four parts and three stats. The
+    // second colours carry a value meaning leave this one alone, so the
+    // colours are signed. The stats are whole numbers: the player clamps them
+    // to between nothing and a hundred straight after taking them.
+    $fields = packet_fields($data, array(
+        'hat_color' => 'num',
+        'head_color' => 'num',
+        'body_color' => 'num',
+        'feet_color' => 'num',
+        'hat_color_2' => 'num',
+        'head_color_2' => 'num',
+        'body_color_2' => 'num',
+        'feet_color_2' => 'num',
+        'hat' => 'num',
+        'head' => 'num',
+        'body' => 'num',
+        'feet' => 'num',
+        'speed' => 'uint',
+        'acceleration' => 'uint',
+        'jumping' => 'uint',
+    ));
+
     $player = $socket->getPlayer();
-    $player->setCustomizeInfo($data);
+    $player->setCustomizeInfo($fields);
 }
 
 
@@ -206,8 +233,9 @@ function client_get_chat_rooms($socket)
 // add a user to your following array
 function client_follow_user($socket, $data)
 {
+    $fields = packet_fields($data, array('name' => 'text'));
     $player = $socket->getPlayer();
-    $new_follow = name_to_player($data);
+    $new_follow = name_to_player($fields['name']);
     if (isset($new_follow)) {
         array_push($player->following_array, $new_follow->user_id);
     }
@@ -217,13 +245,20 @@ function client_follow_user($socket, $data)
 // remove a user from your following array
 function client_unfollow_user($socket, $data)
 {
+    $fields = packet_fields($data, array('name' => 'text'));
     $player = $socket->getPlayer();
-    $follow = name_to_player($data);
-    if (isset($player)) {
-        $index = @array_search($follow->user_id, $player->following_array);
-        if ($index !== false) {
-            array_splice($player->following_array, $index, 1);
-        }
+    $follow = name_to_player($fields['name']);
+
+    // The player that was looked up, not the one who asked. Testing the asker
+    // is testing something that is always there, which left the name nobody
+    // matched being read off nothing with the diagnostic suppressed.
+    if (!isset($follow)) {
+        return;
+    }
+
+    $index = array_search($follow->user_id, $player->following_array);
+    if ($index !== false) {
+        array_splice($player->following_array, $index, 1);
     }
 }
 
@@ -231,8 +266,9 @@ function client_unfollow_user($socket, $data)
 // add a user to your friends array
 function client_add_friend($socket, $data)
 {
+    $fields = packet_fields($data, array('name' => 'text'));
     $player = $socket->getPlayer();
-    $new_friend = name_to_player($data);
+    $new_friend = name_to_player($fields['name']);
     if (isset($new_friend)) {
         array_push($player->friends_array, $new_friend->user_id);
     }
@@ -242,13 +278,17 @@ function client_add_friend($socket, $data)
 // remove a user from your friends array
 function client_remove_friend($socket, $data)
 {
+    $fields = packet_fields($data, array('name' => 'text'));
     $player = $socket->getPlayer();
-    $friend = name_to_player($data);
-    if (isset($player)) {
-        $index = @array_search($friend->user_id, $player->friends_array);
-        if ($index !== false) {
-            array_splice($player->friends_array, $index, 1);
-        }
+    $friend = name_to_player($fields['name']);
+
+    if (!isset($friend)) {
+        return;
+    }
+
+    $index = array_search($friend->user_id, $player->friends_array);
+    if ($index !== false) {
+        array_splice($player->friends_array, $index, 1);
     }
 }
 
@@ -256,8 +296,9 @@ function client_remove_friend($socket, $data)
 // add a user to your ignored array
 function client_ignore_user($socket, $data)
 {
+    $fields = packet_fields($data, array('name' => 'text'));
     $player = $socket->getPlayer();
-    $ignored_player = name_to_player($data);
+    $ignored_player = name_to_player($fields['name']);
     if (isset($ignored_player) && $ignored_player !== $player) {
         array_push($player->ignored_array, $ignored_player->user_id);
     }
@@ -267,13 +308,17 @@ function client_ignore_user($socket, $data)
 // remove a user from your ignored array
 function client_unignore_user($socket, $data)
 {
+    $fields = packet_fields($data, array('name' => 'text'));
     $player = $socket->getPlayer();
-    $ignored_player = name_to_player($data);
-    if (isset($player)) {
-        $index = @array_search($ignored_player->user_id, $player->ignored_array);
-        if ($index !== false) {
-            array_splice($player->ignored_array, $index, 1);
-        }
+    $ignored_player = name_to_player($fields['name']);
+
+    if (!isset($ignored_player)) {
+        return;
+    }
+
+    $index = array_search($ignored_player->user_id, $player->ignored_array);
+    if ($index !== false) {
+        array_splice($player->ignored_array, $index, 1);
     }
 }
 

@@ -48,8 +48,9 @@ function client_request_login_id($socket)
 // get player info (tries from socket first, then HTTP if not online)
 function client_get_player_info($socket, $data)
 {
+    $fields = packet_fields($data, array('name' => 'text'));
     $me = $socket->getPlayer();
-    $target = name_to_player($data);
+    $target = name_to_player($fields['name']);
     if (isset($target)) {
         $obj = $target->getInfo();
         $obj->following = in_array($obj->userId, $me->following_array);
