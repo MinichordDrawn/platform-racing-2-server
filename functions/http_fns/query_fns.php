@@ -654,7 +654,7 @@ function generate_level_list($pdo, $mode)
         throw new Exception("Invalid mode (\"$mode\").");
     }
 
-    $dir = WWW_ROOT . "/files/lists/$mode/";
+    $dir = DATA_DIR . "/files/lists/$mode/";
     if (!is_dir($dir)) {
         mkdir($dir, 0777, true);
     }

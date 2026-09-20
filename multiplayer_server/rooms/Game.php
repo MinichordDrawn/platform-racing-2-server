@@ -2429,8 +2429,8 @@ class Game extends Room
         // Prefer local file system for PR2-hosted levels.
         if (!$this->replayIsPr2hub) {
             $paths = [
-                WWW_ROOT . "/levels/8p_{$this->level_id}.txt",
-                WWW_ROOT . "/files/levels/8p_{$this->level_id}.txt",
+                DATA_DIR . "/levels/8p_{$this->level_id}.txt",
+                DATA_DIR . "/files/levels/8p_{$this->level_id}.txt",
             ];
 
             foreach ($paths as $path) {
@@ -2459,7 +2459,7 @@ class Game extends Room
         }
 
         // PR2Hub level – fetch and cache snapshot so we avoid repeated downloads.
-        $cacheDir = WWW_ROOT . '/replays/_cache/pr2hub';
+        $cacheDir = DATA_DIR . '/replays/_cache/pr2hub';
         $versionSuffix = $this->level_version >= 0 ? $this->level_version : '';
         $cacheFile = $cacheDir . '/' . $this->level_id . '_' . $versionSuffix . '.txt';
         $levelData = '';

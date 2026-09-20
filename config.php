@@ -4,6 +4,12 @@ $directory = __DIR__; // this directory
 
 define('ROOT_DIR', $directory); // root
 define('CACHE_DIR', $directory . '/shared'); // cached files
+
+// Everything the application writes. Deliberately outside the served tree:
+// what the image ships must not change while a container runs, or a hash of
+// the code tree can never mean anything. The served tree keeps these URLs by
+// holding symlinks to this directory.
+define('DATA_DIR', $directory . '/data'); // written data
 define('COMMON_DIR', $directory . '/common'); // common
 define('QUERIES_DIR', $directory . '/common/queries'); // queries
 

@@ -305,7 +305,7 @@ try {
     // level_contents_upsert($pdo, $level_id, $str);
 
     // write to the file system
-    $file_path = WWW_ROOT . "/levels/$level_id_8p.txt";
+    $file_path = DATA_DIR . "/levels/$level_id_8p.txt";
     $file = fopen($file_path, "w");
     if ($file === false) {
         throw new Exception('Your level could not be saved. Please try again.');

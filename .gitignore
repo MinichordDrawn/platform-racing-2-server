@@ -3,8 +3,12 @@
 composer.phar
 env.php
 http_server/beta/*
-http_server/emblems/*
-http_server/levels/*
+# Created at startup as symlinks into /pr2/data. Nothing the application
+# writes belongs in the tree the image ships.
+http_server/levels
+http_server/replays
+http_server/files
+http_server/emblems
 cache
 ecv
 vendor

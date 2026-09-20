@@ -81,7 +81,7 @@ try {
     delete_from_newest($pdo, $level_id);
 
     // delete the file from server
-    unlink(__DIR__ . "/levels/$level_id_8p.txt");
+    unlink(DATA_DIR . "/levels/$level_id_8p.txt");
 
     // delete the file from s3
     // if (!$s3->deleteObject('pr2levels1', "$level_id_8p.txt")) {

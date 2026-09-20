@@ -8,7 +8,7 @@ function check_newest_max($pdo, $name, $ip)
     $matches = array();
 
     // account check
-    $newest = file_get_contents(WWW_ROOT . '/files/lists/newest/1');
+    $newest = file_get_contents(DATA_DIR . '/files/lists/newest/1');
     $levels = json_decode($newest);
 
     foreach ($levels->levels as $level) {

@@ -6,7 +6,7 @@ require_once HTTP_FNS . '/output_fns.php';
 output_header('Server Status');
 
 try {
-    $data = json_decode(file_get_contents(WWW_ROOT . "/files/server_status_2.txt"));
+    $data = json_decode(file_get_contents(DATA_DIR . "/files/server_status_2.txt"));
 
     if (array_key_exists('error', $data)) {
         throw new Exception($data->error);

@@ -4,6 +4,7 @@ header('Content-Type: application/octet-stream');
 
 require_once GEN_HTTP_FNS;
 require_once QUERIES_DIR . '/replays.php';
+require_once FNS_DIR . '/replay_path_fns.php';
 
 $id = default_get('id', '');
 $ip = get_ip();
@@ -38,17 +39,24 @@ try {
         }
     }
 
-    if (!isset($row->file_path) || !is_file($row->file_path)) {
+    if (!isset($row->file_path)) {
         throw new Exception('Replay file is unavailable.');
     }
 
-    $filename = basename($row->file_path);
-    $filesize = (int) filesize($row->file_path);
+    // The column names a replay inside the replay root. It does not name a
+    // file on disk, and nothing here treats it as one.
+    $replay_file = replay_path_resolve($row->file_path);
+    if (!is_file($replay_file)) {
+        throw new Exception('Replay file is unavailable.');
+    }
+
+    $filename = basename($replay_file);
+    $filesize = (int) filesize($replay_file);
 
     header('Content-Disposition: attachment; filename="' . $filename . '"');
     header('Content-Length: ' . $filesize);
 
-    $fh = fopen($row->file_path, 'rb');
+    $fh = fopen($replay_file, 'rb');
     if ($fh === false) {
         throw new Exception('Unable to open replay file.');
     }

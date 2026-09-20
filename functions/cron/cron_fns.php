@@ -125,7 +125,7 @@ function write_server_status($pdo)
     output('Outputting server status:');
     output($display_str);
 
-    file_put_contents(WWW_ROOT . '/files/server_status_2.txt', $display_str);
+    file_put_contents(DATA_DIR . '/files/server_status_2.txt', $display_str);
 
     output("Server status output successful.\n");
 }
@@ -187,7 +187,7 @@ function save_gp($pdo, $server_id, $gp_array)
 
 function update_artifact($pdo)
 {
-    $lotw_file = WWW_ROOT . '/files/level_of_the_week.json';
+    $lotw_file = DATA_DIR . '/files/level_of_the_week.json';
 
     // collect data
     $artifacts = artifact_locations_select($pdo, true);

@@ -674,7 +674,7 @@ function validate_prize($type, $id, $incl_exp = true)
 
 function get_level_content($level_id)
 {
-    $level_file = WWW_ROOT . "/levels/8p_$level_id.txt";
+    $level_file = DATA_DIR . "/levels/8p_$level_id.txt";
     if (!file_exists($level_file)) {
         throw new Exception('Level file does not exist: ' . $level_file);
     }

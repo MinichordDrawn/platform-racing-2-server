@@ -58,7 +58,7 @@ try {
     }
 
     // Save guild emblems locally so self-hosted installs do not depend on S3.
-    $emblems_dir = WWW_ROOT . '/emblems';
+    $emblems_dir = DATA_DIR . '/emblems';
     if (!is_dir($emblems_dir) && !mkdir($emblems_dir, 0775, true) && !is_dir($emblems_dir)) {
         throw new Exception('Could not prepare emblem storage.');
     }

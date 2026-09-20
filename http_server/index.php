@@ -4,7 +4,7 @@ require_once GEN_HTTP_FNS;
 require_once HTTP_FNS . '/output_fns.php';
 
 $socket_proxy_targets = [];
-$status_file = __DIR__ . '/files/server_status_2.txt';
+$status_file = DATA_DIR . '/files/server_status_2.txt';
 if (file_exists($status_file)) {
     $status_data = json_decode(file_get_contents($status_file), true);
     if (!empty($status_data['servers']) && is_array($status_data['servers'])) {

@@ -51,7 +51,7 @@ class ReplayRecorder
     public function __construct(array $meta, ?string $baseDir = null)
     {
         $this->meta = $meta;
-        $this->baseDir = $baseDir ?? (WWW_ROOT . '/replays');
+        $this->baseDir = $baseDir ?? (DATA_DIR . '/replays');
         $this->startedAtMs = $meta['created_at_ms'] ?? self::nowMs();
         $this->lastEventAtMs = $this->startedAtMs;
 
@@ -275,6 +275,9 @@ class ReplayRecorder
         if (!function_exists('replay_insert')) {
             require_once QUERIES_DIR . '/replays.php';
         }
+        if (!function_exists('replay_path_store')) {
+            require_once FNS_DIR . '/replay_path_fns.php';
+        }
 
         $bestObjectivesHit = 0;
         foreach ($this->results as $row) {
@@ -315,7 +318,7 @@ class ReplayRecorder
             (string) ($this->meta['mode'] ?? 'race'),
             (int) $this->startedAtMs,
             (int) $durationMs,
-            (string) $this->path,
+            \replay_path_store($this->path, $this->baseDir),
             $fileSize,
             $first ? (int) $first['user_id'] : null,
             $first ? (int) $first['finish_time_ms'] : null,

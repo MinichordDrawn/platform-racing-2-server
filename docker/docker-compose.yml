@@ -12,9 +12,14 @@ services:
       - MULTI_INTERNAL_PORT=9160
       - PR2HUB_PROXY_URL=http://pr2hub-proxy:8080
     volumes:
+      # Shipped content, served read-only. The only thing mounted inside the
+      # tree the image ships, and nothing writes to it.
       - ../clients:/pr2/http_server/clients:ro
-      - ../../levels:/pr2/http_server/levels
-      - ../../replays:/pr2/http_server/replays
+      # Everything the application writes. The served tree reaches these
+      # through symlinks created at startup, so their URLs are unchanged.
+      - app-data:/pr2/data
+      - ../../levels:/pr2/data/levels
+      - ../../replays:/pr2/data/replays
       - shared-data:/pr2/shared
     depends_on:
       - mysql
@@ -40,8 +45,11 @@ services:
     restart: always
     volumes:
       - shared-data:/pr2/shared
-      - ../../levels:/pr2/http_server/levels:ro
-      - ../../replays:/pr2/http_server/replays
+      # This image never copies http_server in, so it has no served tree at
+      # all. It reads levels and writes replays, and both are data.
+      - app-data:/pr2/data
+      - ../../levels:/pr2/data/levels:ro
+      - ../../replays:/pr2/data/replays
 
   policy:
     build:
@@ -88,4 +96,5 @@ services:
 volumes:
   mysql-data:
   shared-data:
+  app-data:
   pr2hub-proxy-cache:
