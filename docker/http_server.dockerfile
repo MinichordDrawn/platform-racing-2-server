@@ -8,6 +8,10 @@ COPY common/ /pr2/common
 COPY functions/ /pr2/functions
 COPY http_server/ /pr2/http_server
 COPY vend/ /pr2/vend
+# Only this container's own observer. It shares no code with any other
+# observer and loads nothing from the application, so there is nothing
+# else to bring.
+COPY observers/web/ /pr2/observers/web
 COPY common/env.example.php /pr2/common/env.php
 COPY docker/http_server_startup.sh /http_server_startup.sh
 

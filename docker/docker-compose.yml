@@ -17,6 +17,17 @@ services:
       - MULTI_INTERNAL_HOST=multi
       - MULTI_INTERNAL_PORT=9160
       - PR2HUB_PROXY_URL=http://pr2hub-proxy:8080
+      # The observer. Everything SPEC.md lists under "Values to be set" is
+      # required here rather than defaulted in code, so that a deployment
+      # states them where they can be reviewed. These are provisional and
+      # want measuring against real cycle times before they are trusted.
+      - OBSERVER_IDENTITY=web
+      - OBSERVER_CADENCE_SECONDS=10
+      - OBSERVER_STALE_SLACK_CYCLES=1
+      - OBSERVER_STAGING_STALE_AFTER_SECONDS=60
+      - OBSERVER_MAX_HEARTBEAT_BYTES=8192
+      - OBSERVER_MAX_FAULT_BYTES=8192
+      - OBSERVER_MAX_HALT_BYTES=8192
     volumes:
       # Shipped content, served read-only. The only thing mounted inside the
       # tree the image ships, and nothing writes to it.

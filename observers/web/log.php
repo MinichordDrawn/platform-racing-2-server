@@ -33,9 +33,37 @@ namespace pr2obs\web;
 // differently cannot disagree about anything. This one writes JSON Lines to
 // standard output, where the container's ordinary collection takes it.
 
+// Standard output, opened once and never closed.
+//
+// The first version of this opened php://stdout per line and closed it again,
+// which closes the process's own file descriptor 1: the first line went out
+// and every line after it was written to a closed stream. Rule 2 swallowed the
+// error, so the observer ran perfectly and logged nothing at all, and only
+// looking at a real container's output showed it. A logger that hides its own
+// failure is the one place that softening costs something.
+function default_sink($set = null)
+{
+    static $handle = null;
+    if ($set !== null) {
+        $handle = $set;          // only for exercising this path in a test
+        return $handle;
+    }
+    if ($handle === null) {
+        $handle = fopen('php://stdout', 'wb');
+    }
+    return $handle;
+}
+
+// `false` means do not log. `null` means use the default sink.
+//
+// These were the same branch once, and the observer ran for twenty cycles
+// writing a perfect chain and not one line of log, because run.php passes null
+// to mean "standard output" and this function read it as "off". Rule 2 swallows
+// logging errors, so there was no error to see; the only way to find it was to
+// look at a real container's output and notice the silence.
 function log_line($sink, string $event, array $fields): void
 {
-    if ($sink === false || $sink === null) {
+    if ($sink === false) {
         return;
     }
 
@@ -57,11 +85,7 @@ function log_line($sink, string $event, array $fields): void
             @fwrite($sink, $line);
             return;
         }
-        $out = @fopen('php://stdout', 'wb');
-        if ($out !== false) {
-            @fwrite($out, $line);
-            @fclose($out);
-        }
+        @fwrite(default_sink(), $line);
     } catch (\Throwable $e) {
         // Rule 2. Nothing about a log is worth propagating into a cycle whose
         // job is to stop the system.

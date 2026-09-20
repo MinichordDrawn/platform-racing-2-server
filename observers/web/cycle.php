@@ -199,6 +199,15 @@ function run_cycle(array $config): array
     }
 
     // 3. Own store.
+    //
+    // Anything the previous cycle could only learn while writing -- a failed
+    // publication, a re-read that did not match, a cycle that overran its
+    // cadence -- is reported here, because that cycle had already published by
+    // the time it found out. SPEC 13.12 says so for the cadence and the same
+    // reasoning covers the rest.
+    foreach (($config['deferred'] ?? array()) as $d) {
+        $R->fail($d['check'], $d['subject'], $d['detail'] ?? '');
+    }
     check_store_root($R, $R->identity);
     invariant_5($R);
     procedure_h($R);
@@ -350,7 +359,10 @@ function run_cycle(array $config): array
         }
     }
 
-    $result = array(
+    // This function decides and writes nothing. apply.php does the writing, in
+    // the order SPEC 13 fixes, and logs last -- because the halt is what stops
+    // the system and the log only explains it afterwards.
+    return array(
         'verdicts'             => $verdicts,
         'failing'              => $failing,
         'halt_in_force_before' => count($in_force) > 0,
@@ -359,28 +371,6 @@ function run_cycle(array $config): array
         'relay'                => $relay,
         'clears'               => $clears,
         'findings'             => $R->findings,
+        'others'               => identity_order($R->others),
     );
-
-    // 12. The log, and it is last on purpose.
-    //
-    // Logging always follows the halt and never precedes it. The halt is what
-    // stops the system; the log only explains it afterwards. In the other
-    // order a slow or blocked log write delays the stop, and an observer that
-    // died between the two would have recorded the explanation for a stop that
-    // never happened.
-    //
-    // Nothing is written to a store yet -- this cycle decides and reports, and
-    // applying the decision is a later step of the build order. When the
-    // writes are added they go ABOVE this call, which stays the final
-    // statement of the function. That is the whole of the ordering rule and it
-    // is meant to be visible in the shape of the code rather than only in a
-    // comment.
-    log_after_halt(
-        $config['log'] ?? false,
-        $R->identity,
-        $publish['sequence'],
-        $result
-    );
-
-    return $result;
 }
