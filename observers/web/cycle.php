@@ -5,6 +5,7 @@ namespace pr2obs\web;
 require_once __DIR__ . '/store.php';
 require_once __DIR__ . '/procedures.php';
 require_once __DIR__ . '/traces.php';
+require_once __DIR__ . '/log.php';
 
 // One cycle, in the order SPEC.md section 13 fixes.
 //
@@ -349,7 +350,7 @@ function run_cycle(array $config): array
         }
     }
 
-    return array(
+    $result = array(
         'verdicts'             => $verdicts,
         'failing'              => $failing,
         'halt_in_force_before' => count($in_force) > 0,
@@ -359,4 +360,27 @@ function run_cycle(array $config): array
         'clears'               => $clears,
         'findings'             => $R->findings,
     );
+
+    // 12. The log, and it is last on purpose.
+    //
+    // Logging always follows the halt and never precedes it. The halt is what
+    // stops the system; the log only explains it afterwards. In the other
+    // order a slow or blocked log write delays the stop, and an observer that
+    // died between the two would have recorded the explanation for a stop that
+    // never happened.
+    //
+    // Nothing is written to a store yet -- this cycle decides and reports, and
+    // applying the decision is a later step of the build order. When the
+    // writes are added they go ABOVE this call, which stays the final
+    // statement of the function. That is the whole of the ordering rule and it
+    // is meant to be visible in the shape of the code rather than only in a
+    // comment.
+    log_after_halt(
+        $config['log'] ?? false,
+        $R->identity,
+        $publish['sequence'],
+        $result
+    );
+
+    return $result;
 }
