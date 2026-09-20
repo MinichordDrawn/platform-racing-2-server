@@ -28,6 +28,26 @@ services:
       - ../../levels:/pr2/data/levels
       - ../../replays:/pr2/data/replays
       - shared-data:/pr2/shared
+      # The store tree (SPEC 2). Every path has one writer and the
+      # read-only flags are what make that true rather than agreed.
+      #   multi
+      - store-multi:/stores/multi:ro
+      - multi-copy:/stores/multi/copy
+      - multi-halts:/stores/multi/halts
+      #   policy
+      - store-policy:/stores/policy:ro
+      - policy-copy:/stores/policy/copy:ro
+      - policy-halts:/stores/policy/halts
+      #   super
+      - store-super:/stores/super:ro
+      - super-copy-multi:/stores/super/copy-multi:ro
+      - super-copy-policy:/stores/super/copy-policy:ro
+      - super-copy-web:/stores/super/copy-web
+      - super-halts:/stores/super/halts
+      #   web
+      - store-web:/stores/web
+      - web-copy:/stores/web/copy:ro
+      - web-halts:/stores/web/halts:ro
     depends_on:
       - mysql
       - pr2hub-proxy
@@ -97,6 +117,26 @@ services:
       - app-data:/pr2/data
       - ../../levels:/pr2/data/levels:ro
       - ../../replays:/pr2/data/replays
+      # The store tree (SPEC 2). Every path has one writer and the
+      # read-only flags are what make that true rather than agreed.
+      #   multi
+      - store-multi:/stores/multi
+      - multi-copy:/stores/multi/copy:ro
+      - multi-halts:/stores/multi/halts:ro
+      #   policy
+      - store-policy:/stores/policy:ro
+      - policy-copy:/stores/policy/copy
+      - policy-halts:/stores/policy/halts
+      #   super
+      - store-super:/stores/super:ro
+      - super-copy-multi:/stores/super/copy-multi
+      - super-copy-policy:/stores/super/copy-policy:ro
+      - super-copy-web:/stores/super/copy-web:ro
+      - super-halts:/stores/super/halts
+      #   web
+      - store-web:/stores/web:ro
+      - web-copy:/stores/web/copy:ro
+      - web-halts:/stores/web/halts
 
   policy:
     build:
@@ -112,6 +152,27 @@ services:
     ports:
       - "843:8843"
 
+    volumes:
+      # The store tree (SPEC 2). Every path has one writer and the
+      # read-only flags are what make that true rather than agreed.
+      #   multi
+      - store-multi:/stores/multi:ro
+      - multi-copy:/stores/multi/copy:ro
+      - multi-halts:/stores/multi/halts
+      #   policy
+      - store-policy:/stores/policy
+      - policy-copy:/stores/policy/copy:ro
+      - policy-halts:/stores/policy/halts:ro
+      #   super
+      - store-super:/stores/super:ro
+      - super-copy-multi:/stores/super/copy-multi:ro
+      - super-copy-policy:/stores/super/copy-policy
+      - super-copy-web:/stores/super/copy-web:ro
+      - super-halts:/stores/super/halts
+      #   web
+      - store-web:/stores/web:ro
+      - web-copy:/stores/web/copy
+      - web-halts:/stores/web/halts
   mysql:
     image: mysql
     security_opt:
@@ -157,6 +218,20 @@ services:
       - mysql
 
 volumes:
+  store-multi:
+  multi-copy:
+  multi-halts:
+  store-policy:
+  policy-copy:
+  policy-halts:
+  store-super:
+  super-copy-multi:
+  super-copy-policy:
+  super-copy-web:
+  super-halts:
+  store-web:
+  web-copy:
+  web-halts:
   mysql-data:
   shared-data:
   app-data:

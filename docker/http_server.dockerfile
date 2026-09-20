@@ -97,6 +97,20 @@ RUN mkdir -p /var/run/apache2 /var/lock/apache2 \
 # The safe default. The scheduler is a separate service from the same image
 # and overrides this, because cron has to start as root in order to drop to
 # this user for the jobs themselves.
+# The store tree (SPEC 2). The mount points are created here and owned by the
+# user the observer runs as, so a named volume mounted over one inherits that
+# ownership rather than arriving owned by root.
+#
+# heartbeat/ is deliberately not created. A store root with no heartbeat folder
+# is how a reader concludes "never ran here"; pre-creating an empty one would
+# turn that into "ran, and wrote nothing", which is a different claim.
+RUN mkdir -p /stores/web/copy /stores/web/halts \
+             /stores/multi/copy /stores/multi/halts \
+             /stores/policy/copy /stores/policy/halts \
+             /stores/super/halts \
+             /stores/super/copy-web /stores/super/copy-multi /stores/super/copy-policy \
+    && chown -R www-data:www-data /stores
+
 USER www-data
 
 ENTRYPOINT []

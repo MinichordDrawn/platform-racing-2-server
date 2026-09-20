@@ -21,6 +21,20 @@ RUN mkdir -p /pr2/data/levels /pr2/data/replays /pr2/data/files /pr2/data/emblem
 
 # The game server binds 9160, which needs no privilege, so nothing here has
 # any reason to run as root.
+# The store tree (SPEC 2). The mount points are created here and owned by the
+# user the observer runs as, so a named volume mounted over one inherits that
+# ownership rather than arriving owned by root.
+#
+# heartbeat/ is deliberately not created. A store root with no heartbeat folder
+# is how a reader concludes "never ran here"; pre-creating an empty one would
+# turn that into "ran, and wrote nothing", which is a different claim.
+RUN mkdir -p /stores/web/copy /stores/web/halts \
+             /stores/multi/copy /stores/multi/halts \
+             /stores/policy/copy /stores/policy/halts \
+             /stores/super/halts \
+             /stores/super/copy-web /stores/super/copy-multi /stores/super/copy-policy \
+    && chown -R www-data:www-data /stores
+
 USER www-data
 
 # Run the gameserver
