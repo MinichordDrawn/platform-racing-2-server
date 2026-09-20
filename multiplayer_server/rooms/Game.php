@@ -1414,21 +1414,21 @@ class Game extends Room
     }
 
 
-    public function broadcastHit($player, $data)
+    public function broadcastActivate($player, $seg_x, $seg_y, $with)
     {
-        $packet = 'hit' . $data;
-        $this->recordReconnectEvent('block_hit', $packet);
+        $packet = 'activate`' . $seg_x . '`' . $seg_y . '`' . $with . '`';
+        if ($this->shouldRecordReconnectActivateEvent($with)) {
+            $this->recordReconnectEvent('block_activate', $packet);
+        }
         $this->sendToRoom($packet, $player->user_id);
     }
 
 
-    public function broadcastActivate($player, $data)
+    // The effect names itself in its own first field, so the packet is the
+    // fields that were read, in the order that effect declares them.
+    public function addEffect($player, array $fields)
     {
-        $packet = 'activate`' . $data . '`';
-        if ($this->shouldRecordReconnectActivateEvent($data)) {
-            $this->recordReconnectEvent('block_activate', $packet);
-        }
-        $this->sendToRoom($packet, $player->user_id);
+        $this->sendToRoom('addEffect`' . implode('`', $fields), $player->user_id);
     }
 
 
@@ -1523,47 +1523,50 @@ class Game extends Room
     }
 
 
-    public function setVar($player, $data)
+    // The name and the value arrive read, so which variable this is comes from
+    // the name rather than from an offset into the packet.
+    public function setVar($player, $name, $value)
     {
-        if (!$player->race_stats->finished_race) {
-            $packet = 'var'.$player->temp_id.'`'.$data;
-            $parts = explode('`', $data);
-            if (isset($parts[0]) && $parts[0] !== 'rot') {
-                $this->recordReconnectEvent('player_var', $packet);
-            }
-            $this->sendToRoom($packet, $player->user_id);
+        if ($player->race_stats->finished_race) {
+            return;
+        }
 
-            if ($data === 'state`bumped' && $this->mode === self::MODE_DEATHMATCH) {
-                $player->lives--;
-                if ($player->lives <= 0) {
-                    $this->finishRace($player);
-                }
+        $packet = 'var'.$player->temp_id.'`'.$name.'`'.$value;
+        if ($name !== 'rot') {
+            $this->recordReconnectEvent('player_var', $packet);
+        }
+        $this->sendToRoom($packet, $player->user_id);
+
+        if ($name === 'state' && $value === 'bumped' && $this->mode === self::MODE_DEATHMATCH) {
+            $player->lives--;
+            if ($player->lives <= 0) {
+                $this->finishRace($player);
             }
-            if (substr($data, 4) === 'item') {
-                $player->items_used++;
-            }
-            if (!isset($parts[0])) {
-                return;
-            }
-            if ($parts[0] === 'rot') {
-                $player->rot = (int) $parts[1];
-            } elseif ($parts[0] === 'state' && isset($parts[1])) {
-                $player->remote_state = (string) $parts[1];
-            } elseif ($parts[0] === 'parent' && isset($parts[1])) {
-                $player->remote_parent = (string) $parts[1];
-            } elseif ($parts[0] === 'item' && isset($parts[1])) {
-                $player->remote_item = (int) $parts[1];
-            } elseif ($parts[0] === 'scaleX' && isset($parts[1])) {
-                $player->remote_scale_x = (int) $parts[1];
-            } elseif ($parts[0] === 'rotMod' && isset($parts[1])) {
-                $player->remote_rot_mod = (int) $parts[1];
-            } elseif ($parts[0] === 'sparkle' && isset($parts[1])) {
-                $player->remote_sparkle = (int) $parts[1];
-            } elseif ($parts[0] === 'jet' && isset($parts[1])) {
-                $player->remote_jet = (int) $parts[1];
-            } elseif ($parts[0] === 'reconnectPending' && isset($parts[1])) {
-                $player->remote_reconnect_pending = (int) $parts[1];
-            }
+        }
+
+        // Counted when the variable that arrived is the item, which is what
+        // taking a fixed offset into the packet and comparing the rest of it
+        // to that name was reaching for.
+        if ($name === 'item') {
+            $player->items_used++;
+        }
+
+        if ($name === 'rot') {
+            $player->rot = (int) $value;
+        } elseif ($name === 'state') {
+            $player->remote_state = (string) $value;
+        } elseif ($name === 'parent') {
+            $player->remote_parent = (string) $value;
+        } elseif ($name === 'item') {
+            $player->remote_item = (int) $value;
+        } elseif ($name === 'scaleX') {
+            $player->remote_scale_x = (int) $value;
+        } elseif ($name === 'rotMod') {
+            $player->remote_rot_mod = (int) $value;
+        } elseif ($name === 'sparkle') {
+            $player->remote_sparkle = (int) $value;
+        } elseif ($name === 'jet') {
+            $player->remote_jet = (int) $value;
         }
     }
 
@@ -1695,7 +1698,7 @@ class Game extends Room
         foreach ($player->worn_hat_array as $hat) {
             $hat = $hat; // this is some dumb bs but travis will not be satisfied if this line doesn't exist
             $y = $player->pos_y - 50;
-            $this->looseHat($player, "$player->pos_x`$y`$player->rot");
+            $this->looseHat($player, $player->pos_x, $y, $player->rot);
         }
     }
 
@@ -1735,12 +1738,16 @@ class Game extends Room
     }
 
 
-    public function looseHat($player, $info)
+    // The three fields from the sender sit in front of four the room writes
+    // itself, so they are spliced in as three rather than as one run of text:
+    // a fourth from the sender would move every field after it.
+    public function looseHat($player, $x, $y, $rot)
     {
         if (count($player->worn_hat_array) > 0) {
             $hat = array_pop($player->worn_hat_array);
             $this->loose_hat_array[$hat->id] = $hat;
-            $packet = 'addEffect`Hat`'.$info.'`'.$hat->num.'`'.$hat->color.'`'.$hat->color2.'`'.$hat->id;
+            $packet = 'addEffect`Hat`'.$x.'`'.$y.'`'.$rot
+                .'`'.$hat->num.'`'.$hat->color.'`'.$hat->color2.'`'.$hat->id;
             $this->recordReconnectEvent('hat_drop', $packet);
             $this->sendToAll($packet, $player->user_id);
             $hatPacket = $this->getHatStr($player);
@@ -2145,11 +2152,8 @@ class Game extends Room
         return $str;
     }
 
-    private function shouldRecordReconnectActivateEvent(string $data): bool
+    private function shouldRecordReconnectActivateEvent(string $direction): bool
     {
-        $parts = explode('`', $data);
-        $direction = isset($parts[2]) ? (string) $parts[2] : '';
-
         // Directional activate payloads are push blocks in the current client protocol.
         // They can spam the reconnect event ring buffer without adding stable replay value.
         // A more complete fix would snapshot and restore movable-block state during resume

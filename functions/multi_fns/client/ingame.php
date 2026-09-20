@@ -19,7 +19,11 @@ function client_loose_hat($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
-        $player->game_room->looseHat($player, $data);
+        // Where the hat fell and how it is turned. Exactly three, because the
+        // room writes four fields of its own after these, and a fourth from
+        // here would move every one of them.
+        $fields = packet_fields($data, array('x' => 'num', 'y' => 'num', 'rot' => 'num'));
+        $player->game_room->looseHat($player, $fields['x'], $fields['y'], $fields['rot']);
     }
 }
 
@@ -99,9 +103,21 @@ function client_sting($socket, $data)
 function client_set_var($socket, $data)
 {
     $player = $socket->getPlayer();
-    if (isset($player->game_room)) {
-        $player->game_room->setVar($player, $data);
+    if (!isset($player->game_room)) {
+        return;
     }
+
+    // Which variable, then its value read as whatever that variable is.
+    $kinds = player_var_kinds();
+    $named = packet_fields($data, array('name' => 'word', 'value' => 'text'));
+
+    if (!isset($kinds[$named['name']])) {
+        throw new Exception('No such player variable.');
+    }
+
+    $fields = packet_fields($data, array('name' => 'word', 'value' => $kinds[$named['name']]));
+
+    $player->game_room->setVar($player, $fields['name'], $fields['value']);
 }
 
 
@@ -109,9 +125,22 @@ function client_set_var($socket, $data)
 function client_add_effect($socket, $data)
 {
     $player = $socket->getPlayer();
-    if (isset($player->game_room)) {
-        $player->game_room->sendToRoom('addEffect`'.$data, $player->user_id);
+    if (!isset($player->game_room)) {
+        return;
     }
+
+    // How many fields an effect carries depends on which effect it is, so the
+    // name is read first and chooses the shape the rest is read against.
+    $kinds = effect_field_kinds();
+    $name = packet_field_value('effect', 'word', strstr($data . '`', '`', true));
+
+    if (!isset($kinds[$name])) {
+        throw new Exception('No such effect.');
+    }
+
+    $fields = packet_fields($data, $kinds[$name]);
+
+    $player->game_room->addEffect($player, $fields);
 }
 
 
@@ -125,14 +154,13 @@ function client_zap($socket)
 }
 
 
-// hit a block
-function client_hit($socket, $data)
-{
-    $player = $socket->getPlayer();
-    if (isset($player->game_room)) {
-        $player->game_room->broadcastHit($player, $data);
-    }
-}
+// There was a handler here for a command that joined the sender's text onto
+// the command name with no separator between them, so the sender chose the
+// name the receiving clients dispatched on, and nothing examined it. No client
+// sends that command: it appears in no client source and in none of the
+// shipped client builds, while every other command here appears in all of
+// them. A shape cannot be declared for a command nothing sends, so the handler
+// is gone rather than guessed at.
 
 
 // touch a block
@@ -140,7 +168,11 @@ function client_activate($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
-        $player->game_room->broadcastActivate($player, $data);
+        // Which block, and what it was activated with. Block coordinates are
+        // signed. The last field is empty for most kinds of block, which send
+        // nothing with it, so it is declared as one that may be empty.
+        $fields = packet_fields($data, array('seg_x' => 'num', 'seg_y' => 'num', 'with' => 'text?'));
+        $player->game_room->broadcastActivate($player, $fields['seg_x'], $fields['seg_y'], $fields['with']);
     }
 }
 

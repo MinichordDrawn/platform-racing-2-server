@@ -226,7 +226,19 @@ function packet_fields($data, array $spec)
 // is a value that was wrong and got used anyway.
 function packet_field_value($name, $kind, $value)
 {
+    // A kind ending in a question mark says this field may be empty. Some
+    // commands carry one because the thing that sends it has nothing to put
+    // there. It still has to be present, and it is still read as its kind
+    // whenever it is not empty.
+    $optional = substr($kind, -1) === '?';
+    if ($optional) {
+        $kind = substr($kind, 0, -1);
+    }
+
     if ($value === '') {
+        if ($optional) {
+            return '';
+        }
         throw new Exception("The $name field of a packet was empty.");
     }
 
@@ -266,6 +278,80 @@ function packet_field_value($name, $kind, $value)
     }
 
     throw new Exception("The $name field of a packet was declared as a kind this server does not have.");
+}
+
+
+// The player variables a client may set, and what each one's value is.
+//
+// The value's kind is decided by the variable, so the packet cannot be read
+// until the name has been. Three of these are legitimately negative, which is
+// why they are numbers rather than whole numbers: the facing is one or minus
+// one, and both rotations are signed multiples of a right angle.
+//
+// beginRemove is here because the client sends it. The room has no branch for
+// it and keeps nothing from it; it is relayed, and the receiving clients act
+// on it. Leaving it out would refuse it in play.
+//
+// The room also keeps a variable the client never sends, for a reconnecting
+// player. It is not here, because this says what a client may set.
+function player_var_kinds()
+{
+    return array(
+        'rot' => 'num',
+        'rotMod' => 'num',
+        'scaleX' => 'num',
+        'state' => 'word',
+        'parent' => 'word',
+        'item' => 'uint',
+        'sparkle' => 'uint',
+        'jet' => 'uint',
+        'beginRemove' => 'uint',
+    );
+}
+
+
+// The effects a client may raise, and the fields each one carries.
+//
+// How many fields an effect carries depends on which effect it is, so the name
+// is read first and chooses the rest. Each spec names the effect's own first
+// field as well, so the name that chose the shape is the name that goes out.
+//
+// Positions come from the sending character and are signed and fractional.
+// Facings are names. Rotations are signed multiples of a right angle. The
+// temp id is a whole number where it names a player and is negative where it
+// says there is none, so it is a number.
+//
+// The room raises one further effect of its own when a hat is dropped. It is
+// not here, because this says what a client may raise.
+function effect_field_kinds()
+{
+    return array(
+        'Teleport' => array('effect' => 'word', 'x' => 'num', 'y' => 'num'),
+        'Mine' => array('effect' => 'word', 'x' => 'num', 'y' => 'num', 'rot' => 'num'),
+        'Slash' => array(
+            'effect' => 'word',
+            'x' => 'num',
+            'y' => 'num',
+            'facing' => 'word',
+            'temp_id' => 'num',
+        ),
+        'Laser' => array(
+            'effect' => 'word',
+            'x' => 'num',
+            'y' => 'num',
+            'facing' => 'word',
+            'rot' => 'num',
+            'temp_id' => 'num',
+        ),
+        'IceWave' => array(
+            'effect' => 'word',
+            'x' => 'num',
+            'y' => 'num',
+            'facing' => 'uint',
+            'rot' => 'num',
+            'temp_id' => 'num',
+        ),
+    );
 }
 
 
