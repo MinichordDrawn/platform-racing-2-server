@@ -73,8 +73,11 @@ function container_local_checks(): array
         'php-version',
         'extensions-declared',
         'extensions-unchanged',
-        'document-root',
-        'apache-modules',
+        // document-root and apache-modules are absent because this container
+        // has neither, and the constants they read are empty, so neither can
+        // fail here. A column that claims a check it cannot make publishes
+        // that claim in every heartbeat, and nothing in the ring compares the
+        // list against anything but its own length.
         'env-not-example',
         'debug-mode-off',
         'paypal-live',

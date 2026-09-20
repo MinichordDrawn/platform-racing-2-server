@@ -242,10 +242,30 @@ function apply_cycle(array &$state, array $plan): void
     } else {
         $state['memory'][$hb_rel] = $hash;
         if ($hash !== hash_bytes($bytes)) {
-            // SPEC 5: use the re-read hash regardless, because that is what
-            // every other reader will compute -- but say that the write did
-            // not land as intended. The next cycle's writability probe is what
-            // turns this into a finding; this is the record of the moment.
+            // The write succeeded, the rename succeeded, and what came back is
+            // not what went in. That is the store disagreeing with this
+            // observer about what this observer just did, and there is no
+            // benign reading of it: it is the condition the memory mechanism
+            // exists to detect one cycle later, happening now, in the one
+            // place with both values in hand.
+            //
+            // This used to be a line in the log and a claim that the next
+            // cycle's writability probe would turn it into a finding. It would
+            // not. The probe establishes that the store can be written, which
+            // it plainly can, and says nothing about whether the bytes that
+            // came back are the bytes that went in. So an observer published
+            // one thing, read back another, chained the next heartbeat onto
+            // what it read, and nothing ever stopped.
+            //
+            // The re-read hash is still what goes into memory, because that is
+            // what every other reader will compute and holding the intended
+            // one would make this observer the only member reading a value
+            // nobody else can see.
+            $plan['findings'][] = array(
+                'check'   => 'own-store-writable',
+                'subject' => null,
+                'detail'  => 'a published file read back differently from what was written',
+            );
             log_line($state['log'] ?? false, 'publish-differs', array(
                 'observer' => $identity, 'sequence' => $seq, 'path' => $hb_rel,
             ));

@@ -327,12 +327,27 @@ function run_cycle(array $config): array
     }
     $checks[] = 'own-store-writable';
     $checks[] = 'halts-readable';
+    // Raised by every observer and published by none of them until now.
+    // cycle-within-cadence is decided below, against the ceiling this
+    // observer declares; staging-fresh is decided while reading any folder
+    // that can hold a half-finished publication. Both can fail in every
+    // container, so both belong in every account of what was checked.
+    $checks[] = 'cycle-within-cadence';
+    $checks[] = 'staging-fresh';
     foreach (copies_for($R) as $c) {
         $checks[] = 'copy-readable:' . $c['author'];
         $checks[] = 'copy-current:' . $c['author'];
     }
     foreach (array('I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7', 'S1', 'S2', 'S3', 'S4', 'S5') as $id) {
         $checks[] = $id;
+    }
+    // The work on this observer's host, where there is any to read. Named by
+    // the schedule, the way member checks are named by the member, because a
+    // bare identifier would say three checks ran when twelve did.
+    foreach ($config['traces'] ?? array() as $s) {
+        $checks[] = 'trace-fresh:' . $s['schedule'];
+        $checks[] = 'trace-complete:' . $s['schedule'];
+        $checks[] = 'trace-coverage:' . $s['schedule'];
     }
     // This observer's own column: what its container is and must still be.
     foreach (container_local_checks() as $id) {

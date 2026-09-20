@@ -429,7 +429,31 @@ function observer_gate_refuse($reason)
 // attacker sets, and this design refuses that shape everywhere else.
 function observer_gate_self_checking()
 {
-    return array('pr2.php', 'run_policy.php');
+    return array(
+        '/pr2/multiplayer_server/pr2.php',
+        '/pr2/policy_server/run_policy.php',
+    );
+}
+
+
+// Whether a command-line script is one of them.
+//
+// The whole path, not the base name. Matching on the base name admitted any
+// script anywhere in the image that happened to be called `pr2.php` or
+// `run_policy.php`, on the strength of what it was called rather than what it
+// was, and what it was admitted to is config.php: the environment, the
+// credentials and a database connection, during a halt, because the halt is
+// exactly what the exemption sets aside.
+//
+// A name is a claim about identity. A path is the identity, as far as anything
+// inside a container can establish it, and it is what the startup scripts
+// actually run.
+function observer_gate_is_self_checking($script)
+{
+    if (!is_string($script) || $script === '') {
+        return false;
+    }
+    return in_array(str_replace('\\', '/', $script), observer_gate_self_checking(), true);
 }
 
 
@@ -442,7 +466,7 @@ function observer_gate_self_checking()
 function observer_gate_enforce()
 {
     if (PHP_SAPI === 'cli'
-        && in_array(basename($_SERVER['SCRIPT_FILENAME'] ?? ''), observer_gate_self_checking(), true)
+        && observer_gate_is_self_checking($_SERVER['SCRIPT_FILENAME'] ?? '')
     ) {
         return;
     }
