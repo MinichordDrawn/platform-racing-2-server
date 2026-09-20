@@ -248,12 +248,12 @@ function client_unignore_user($socket, $data)
 }
 
 
-// unlock the kong set (ant set)
-function client_award_kong_outfit($socket)
-{
-    $player = $socket->getPlayer();
-    $player->awardKongOutfit();
-}
+// The Kong set is awarded on login, by Player::awardKongParts, when the login
+// says it should be. There was a handler here that let a player ask for it
+// instead, and it named a method that does not exist, so every call ended the
+// server process rather than awarding anything. Naming the real method would
+// have handed the set to anyone who asked, with the login's own condition
+// skipped, so the handler is gone rather than corrected.
 
 
 // increment used rank tokens

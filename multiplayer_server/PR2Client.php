@@ -117,7 +117,19 @@ class PR2Client extends \chabot\SocketServerClient
                 $this->last_user_action = $time;
             }
         } catch (\Exception $e) {
+            // A handler refusing a packet. It says so and the connection
+            // carries on, which is what a refusal should cost.
             output('Error: '.$e->getMessage());
+        } catch (\Throwable $e) {
+            // A fault in the server rather than a refusal. Catching only
+            // Exception let these out of the packet loop and ended the
+            // process, which takes every player on the server with it. It is
+            // held to this one connection, and that connection is closed
+            // because the handler did not finish and what it left behind is
+            // not known.
+            output('Fault: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            $this->close();
+            $this->onDisconnect();
         }
     }
 
