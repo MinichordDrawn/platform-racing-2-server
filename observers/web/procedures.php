@@ -562,10 +562,10 @@ function procedure_k(Reader $R, string $dir, string $author): void
             $R->fail('I7', $author, 'a fault copy naming another author');
             return;
         }
-        if ($parsed['sequence'] > $max) {
-            $R->fail('I7', $author, 'a fault copy carrying a sequence the author has not reached');
-            return;
-        }
+        // A fault has no chain, so "a record the author never published" is
+        // decidable only by its author. The sequence field that once made a
+        // second form of this decidable has been removed: it was history, and
+        // it was the only thing keeping an awkward test alive.
         if (!$orig_present) {
             $R->fail('copy-current', $author, 'a fault copy where the author has none');
             return;

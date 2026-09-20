@@ -70,29 +70,55 @@ function heartbeat_bytes(array $fields): string
     return json_encode($object, JSON_UNESCAPED_SLASHES) . "\n";
 }
 
-function fault_bytes(string $observer, int $sequence, string $now, array $failing, array $since): string
+// A problem with a different observer is a halt, not a fault.
+//
+// The fault file says "my own assertions about my own world are failing", and
+// nothing else. The reason is recovery: the clear-condition is "no store holds
+// a fault", so a fault has to mean something only its owner can fix and only
+// its owner can clear. If a dead peer made every other member faulty, one
+// member's failure would be recorded as three, the ring would report three
+// healthy members as unwell, and the state everyone needs in order to stand
+// down would be written by the very condition that should lift it.
+//
+// The list is explicit rather than derived from the subject. A check that is
+// not on it is treated as being about somebody else, which is the safe
+// direction: that costs a halt without a fault, and the halt is what stops the
+// system anyway.
+function local_check_identifiers(): array
+{
+    return array(
+        // this observer's own store and process
+        'own-store-writable',
+        'halts-readable',
+        'cycle-within-cadence',
+        // the work on this observer's own host
+        'trace-fresh',
+        'trace-complete',
+        'trace-coverage',
+        'postcondition',
+    );
+}
+
+function is_local_finding(array $finding): bool
+{
+    return in_array($finding['check'], local_check_identifiers(), true);
+}
+
+// The fault is state, not an account. Presence is the verdict and the failing
+// set is the state; when it began and what it said are history, and history is
+// the log's job. Keeping only the state also makes the bytes stable -- they
+// change when the failing set changes and at no other time -- which is what
+// makes a copy of them comparable at all.
+function fault_bytes(string $observer, array $failing): string
 {
     $entries = array();
-    $earliest = $now;
     foreach ($failing as $f) {
-        $key = $f['check'] . '|' . ($f['subject'] ?? '');
-        $began = $since[$key] ?? $now;
-        if ($began < $earliest) {
-            $earliest = $began;
-        }
-        $entries[] = array(
-            'check'   => $f['check'],
-            'subject' => $f['subject'],
-            'since'   => $began,
-            'detail'  => (string) ($f['detail'] ?? ''),
-        );
+        $entries[] = array('check' => $f['check'], 'subject' => $f['subject']);
     }
     return json_encode(array(
         'kind'     => KIND_FAULT,
         'version'  => 1,
         'observer' => $observer,
-        'sequence' => $sequence,
-        'since'    => $earliest,
         'failing'  => $entries,
     ), JSON_UNESCAPED_SLASHES) . "\n";
 }
@@ -192,22 +218,21 @@ function apply_cycle(array &$state, array $plan): void
     $fault_path = join_path($stores, $identity, 'fault');
     $fault_rel  = $identity . '/fault';
 
+    // Only this observer's own assertions reach the file. Everything about
+    // another member, and every structural violation, halts without appearing
+    // here.
+    $local = array();
+    foreach ($plan['findings'] as $f) {
+        if (is_local_finding($f)) {
+            $local[] = $f;
+        }
+    }
+
     $set = array();
-    foreach ($plan['failing'] as $f) {
+    foreach ($local as $f) {
         $set[] = $f['check'] . '|' . ($f['subject'] ?? '');
     }
     sort($set, SORT_STRING);
-
-    foreach ($set as $key) {
-        if (!isset($state['since'][$key])) {
-            $state['since'][$key] = $now;
-        }
-    }
-    foreach (array_keys($state['since']) as $key) {
-        if (!in_array($key, $set, true)) {
-            unset($state['since'][$key]);
-        }
-    }
 
     if (count($set) === 0) {
         if (is_file($fault_path)) {
@@ -215,8 +240,7 @@ function apply_cycle(array &$state, array $plan): void
         }
         unset($state['memory'][$fault_rel]);
     } elseif ($set !== ($state['failing_set'] ?? null) || !is_file($fault_path)) {
-        $fb = fault_bytes($identity, $seq, $now, $plan['findings'], $state['since']);
-        $fh = publish_atomic($fault_path, $fb);
+        $fh = publish_atomic($fault_path, fault_bytes($identity, $local));
         if ($fh !== null) {
             $state['memory'][$fault_rel] = $fh;
         }

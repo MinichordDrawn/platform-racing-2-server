@@ -109,7 +109,11 @@ const KEYS_HEARTBEAT = array(
     'kind', 'version', 'observer', 'sequence', 'timestamp', 'cadence_seconds',
     'checks', 'check_count', 'observed', 'previous', 'boot', 'stop',
 );
-const KEYS_FAULT = array('kind', 'version', 'observer', 'sequence', 'since', 'failing');
+// The fault is a state file, not an account. Presence is the verdict; the
+// failing set is the state. `sequence`, `since` and per-entry `detail` were
+// history, and history is the log's job -- dropping them also removes the one
+// field that existed only to make a chainless file's copy decidable.
+const KEYS_FAULT = array('kind', 'version', 'observer', 'failing');
 const KEYS_HALT  = array('kind', 'version', 'observer', 'reason', 'subject', 'sequence', 'when', 'detail');
 
 function is_timestamp($v): bool
@@ -237,20 +241,14 @@ function parse_fault(string $bytes, ?string $expected_observer = null): ?array
         // without an expectation and compares itself.
         return null;
     }
-    if (!is_int($o['sequence']) || !is_timestamp($o['since'])) {
-        return null;
-    }
     if (!is_array($o['failing']) || count($o['failing']) === 0) {
         return null;
     }
     foreach ($o['failing'] as $f) {
-        if (!is_array($f) || !keys_exactly($f, array('check', 'subject', 'since', 'detail'))) {
+        if (!is_array($f) || !keys_exactly($f, array('check', 'subject'))) {
             return null;
         }
         if (!is_string($f['check']) || !($f['subject'] === null || is_string($f['subject']))) {
-            return null;
-        }
-        if (!is_timestamp($f['since']) || !is_string($f['detail'])) {
             return null;
         }
     }
