@@ -4,6 +4,9 @@ namespace pr2\multi;
 
 class ChatMessage
 {
+    // The longest a chat message may be, in bytes. Stated once so the cut on
+    // arrival and the cut after emotes are expanded cannot drift apart.
+    public const MAX_LENGTH = 150;
 
     public $from_id;
     public $message;
@@ -17,10 +20,8 @@ class ChatMessage
         $this->from_id = $this->player->user_id;
         $this->message = $chat_message;
 
-        // sanity check: is the message more than 150 characters?
-        if (strlen($this->message) > 150) {
-            $this->message = substr($this->message, 0, 150);
-        }
+        // sanity check: is the message longer than a message may be?
+        $this->message = self::capLength($this->message);
 
         // find what room the player is in
         if (isset($this->player->chat_room) && !isset($this->player->game_room)) {
@@ -38,6 +39,13 @@ class ChatMessage
         }
 
         $this->handleEmotes();
+
+        // Cut again. The cut above happens before this expansion, and the
+        // expansion puts much longer sequences in place of short codes, so a
+        // message made of them left the cap well behind, and it is the
+        // expanded text that gets broadcast.
+        $this->message = self::capLength($this->message);
+
         if (strpos($this->message, '/') === 0 && isset($this->room)) {
             $this->handleCommand();
         } elseif (isset($this->room)) {
@@ -59,6 +67,27 @@ class ChatMessage
 
 
     // special text emotes
+    // Cuts a message to the longest one allowed.
+    //
+    // The cut lands on a character boundary. Emote expansions are multi byte,
+    // so cutting by bytes alone would leave part of a character at the end and
+    // what went out would not be valid text.
+    public static function capLength($message)
+    {
+        $message = (string) $message;
+
+        if (strlen($message) <= self::MAX_LENGTH) {
+            return $message;
+        }
+
+        if (function_exists('mb_strcut')) {
+            return mb_strcut($message, 0, self::MAX_LENGTH, 'UTF-8');
+        }
+
+        return substr($message, 0, self::MAX_LENGTH);
+    }
+
+
     private function handleEmotes()
     {
         $this->message = str_ireplace(':shrug:', '‾\_(ツ)_/‾', $this->message);
