@@ -187,6 +187,19 @@ class CourseBox
 
     public function forceStart()
     {
+        // The countdown this measures is never started: the line that would
+        // start it is commented out above. Subtracting an unset value from the
+        // clock gives the clock, which is always more than fifteen, so this
+        // passed on every call and any occupant could clear every other
+        // unconfirmed occupant's slot as often as they liked.
+        //
+        // With no countdown there is nothing to have elapsed, so there is
+        // nothing to force. Starting the countdown makes this work as it
+        // reads; until then it does nothing rather than everything.
+        if (!isset($this->force_time)) {
+            return;
+        }
+
         if ((time() - $this->force_time) > 15) {
             foreach ($this->slot_array as $player) {
                 if (!$player->confirmed) {
