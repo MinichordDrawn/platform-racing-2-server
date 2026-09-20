@@ -178,6 +178,97 @@ function packet_temp_id($data)
 }
 
 
+// Reads a packet against the fields its command takes.
+//
+// $spec names each field in the order it arrives and says what kind it is.
+// What comes back is one value per name, or nothing: a packet that does not
+// match the declaration is refused rather than partly read.
+//
+// The count has to match exactly, and that is what refuses a separator the
+// sender put inside a value. Everything after the command name is split on the
+// separator, so an added one is an added field, and the command knows how many
+// it takes. This matters most where the server writes fields of its own after
+// the sender's value, because there an added separator moves them.
+//
+// Build the outgoing packet from what this returns rather than from the text
+// that arrived, so that what was checked and what is sent cannot differ.
+function packet_fields($data, array $spec)
+{
+    $parts = explode('`', (string) $data);
+
+    if (count($parts) !== count($spec)) {
+        $wanted = count($spec);
+        $got = count($parts);
+        throw new Exception("A packet carried $got fields where this command takes $wanted.");
+    }
+
+    $values = array();
+    $index = 0;
+    foreach ($spec as $name => $kind) {
+        $values[$name] = packet_field_value($name, $kind, $parts[$index]);
+        $index++;
+    }
+
+    return $values;
+}
+
+
+// One field of a packet, read as the kind it is used as.
+//
+// The kinds are named after what the value is for, because that is what
+// decides the rule. A value used as an array key or spliced into the name of a
+// packet other clients parse has to be a whole number; one used in arithmetic
+// has to be a number; one compared against names has to be a name; and one
+// relayed without being looked at still has to survive framing.
+//
+// Nothing here trims, pads, strips or escapes. A field that does not match
+// what the command takes is refused, because a value that has been corrected
+// is a value that was wrong and got used anyway.
+function packet_field_value($name, $kind, $value)
+{
+    if ($value === '') {
+        throw new Exception("The $name field of a packet was empty.");
+    }
+
+    // The separator cannot be here, because reading the packet consumed it.
+    // This one can, and it would end the message early at every client that
+    // received it.
+    if (strpos($value, packet_terminator()) !== false) {
+        throw new Exception("The $name field of a packet carried the message terminator.");
+    }
+
+    if ($kind === 'uint') {
+        if (!ctype_digit($value)) {
+            throw new Exception("The $name field of a packet was not a whole number.");
+        }
+        return (int) $value;
+    }
+
+    if ($kind === 'num') {
+        // Returned as the text that was checked. Reading it as a float and
+        // writing it back can change it, or spell it another way, and the
+        // packet is built from what comes back.
+        if (preg_match('/^-?[0-9]+(?:\.[0-9]+)?$/', $value) !== 1) {
+            throw new Exception("The $name field of a packet was not a number.");
+        }
+        return $value;
+    }
+
+    if ($kind === 'word') {
+        if (preg_match('/^[A-Za-z0-9_]+$/', $value) !== 1) {
+            throw new Exception("The $name field of a packet was not a name.");
+        }
+        return $value;
+    }
+
+    if ($kind === 'text') {
+        return $value;
+    }
+
+    throw new Exception("The $name field of a packet was declared as a kind this server does not have.");
+}
+
+
 // The rooms a client may ask to be put in, by the name it sends.
 //
 // Building a variable name out of the packet instead reaches whichever globals
