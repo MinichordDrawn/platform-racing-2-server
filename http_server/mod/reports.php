@@ -94,6 +94,7 @@ try {
         $rid = (int) $item->$reporter_uid;
         $rip = $item->reporter_ip;
         $oname = htmlspecialchars($item->$offender_name, ENT_QUOTES);
+        $safe_token = htmlspecialchars($_COOKIE['token'], ENT_QUOTES);
         $disp_oname = str_replace(' ', '&nbsp;', $oname);
         $oid = (int) $item->$offender_uid;
         $oip = $item->$offender_ip;
@@ -134,6 +135,7 @@ try {
                 ."<input id='$button_id' type='submit' value='Archive'><br>"
                 ."-- or --<br>"
                 ."<form id='$form_id' action='../ban_user.php' method='post'>"
+                    ."<input type='hidden' value='$safe_token' name='token'>"
                     ."<input type='hidden' value='yes' name='using_mod_site'>"
                     ."<input type='hidden' value='$oname' name='banned_name'>"
                     ."<input type='hidden' value='$oip' name='force_ip'>"

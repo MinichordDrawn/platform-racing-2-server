@@ -5,13 +5,15 @@ require_once HTTP_FNS . '/output_fns.php';
 require_once QUERIES_DIR . '/admin_actions.php';
 require_once QUERIES_DIR . '/changing_emails.php';
 require_once QUERIES_DIR . '/servers.php';
+require_once QUERIES_DIR . '/tokens.php';
 
 // variables
-$ip = get_ip();
 $user_id = (int) default_get('id', 0);
 $action = default_post('action', 'lookup');
+$token = default_post('token');
 
 try {
+    $ip = get_ip();
     // rate limiting
     rate_limit('update-account-'.$ip, 60, 10);
     rate_limit('update-account-'.$ip, 5, 2);
@@ -69,6 +71,12 @@ try {
         }
         echo '<input type="hidden" name="action" value="update">';
         echo "<input type='hidden' name='post_id' value='$user_id'>";
+        // Sent back with the form so the update branch can tell a submission
+        // of this form from a request some other site caused the browser to
+        // make. Another site can make the browser send its cookies, but cannot
+        // read them to fill this in.
+        $safe_token = htmlspecialchars($_COOKIE['token'], ENT_QUOTES);
+        echo "<input type='hidden' name='token' value='$safe_token'>";
 
         echo '<br/>';
         echo '<input type="submit" value="Submit">&nbsp;(no confirmation!)';
@@ -84,6 +92,12 @@ try {
     } elseif ($action === 'update') {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             throw new Exception('Invalid request type.');
+        }
+
+        // make sure the token exists and belongs to this admin
+        $auth = token_select($pdo, $token);
+        if ((int) $auth->user_id !== (int) $admin->user_id) {
+            throw new Exception('Could not validate token.');
         }
 
         // make some nice variables

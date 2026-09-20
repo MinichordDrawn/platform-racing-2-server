@@ -35,10 +35,12 @@ try {
     $row = user_select($pdo, $user_id);
     $name = htmlspecialchars($row->name, ENT_QUOTES);
     $target_ip = filter_var($force_ip, FILTER_VALIDATE_IP) ? $force_ip : $row->ip;
+    $safe_token = htmlspecialchars($_COOKIE['token'], ENT_QUOTES);
 
     echo "<p>Ban $name [$target_ip]</p>";
 
     echo '<form action="/ban_user.php" method="post">'
+            ."<input type='hidden' value='$safe_token' name='token' />"
             .'<input type="hidden" value="yes" name="using_mod_site" />'
             .'<input type="hidden" value="yes" name="redirect" />'
             ."<input type='hidden' value='$target_ip' name='force_ip' />"

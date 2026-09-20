@@ -20,6 +20,7 @@ $type = default_post('type', 'both');
 $scope = default_post('scope', 'g');
 $level_id = (int) default_post('level_id', 0);
 $force_ip = default_post('force_ip', '');
+$token = default_post('token', '');
 $ip = get_ip();
 
 $ret = new stdClass();
@@ -44,6 +45,19 @@ try {
 
     // check for permission
     $mod = check_moderator($pdo);
+
+    // The staff pages send the session token back in the form, so a ban asked
+    // for by one of them can be told apart from a request some other site
+    // caused the browser to make. The game client does not send it yet, so a
+    // request without one is still accepted and this is not yet a barrier: it
+    // only becomes one when the client sends it and the else branch below
+    // turns into a refusal.
+    if (!is_empty($token)) {
+        $auth = token_select($pdo, $token);
+        if ((int) $auth->user_id !== (int) $mod->user_id) {
+            throw new Exception('Could not validate token.');
+        }
+    }
 
     // get variables from the mod variable
     $mod_uid = (int) $mod->user_id;
