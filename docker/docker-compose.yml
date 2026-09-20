@@ -121,6 +121,18 @@ services:
     # depends_on:
     #   - liquibase
     restart: always
+    environment:
+      # The observer. Everything SPEC.md lists under "Values to be set" is
+      # required here rather than defaulted in code, so a deployment states
+      # them where they can be reviewed. Provisional, and wanting measuring
+      # against real cycle times.
+      - OBSERVER_IDENTITY=multi
+      - OBSERVER_CADENCE_SECONDS=10
+      - OBSERVER_STALE_SLACK_CYCLES=1
+      - OBSERVER_STAGING_STALE_AFTER_SECONDS=60
+      - OBSERVER_MAX_HEARTBEAT_BYTES=8192
+      - OBSERVER_MAX_FAULT_BYTES=8192
+      - OBSERVER_MAX_HALT_BYTES=8192
     volumes:
       - shared-data:/pr2/shared
       # This image never copies http_server in, so it has no served tree at
@@ -163,6 +175,18 @@ services:
     ports:
       - "843:8843"
 
+    environment:
+      # The observer. Everything SPEC.md lists under "Values to be set" is
+      # required here rather than defaulted in code, so a deployment states
+      # them where they can be reviewed. Provisional, and wanting measuring
+      # against real cycle times.
+      - OBSERVER_IDENTITY=policy
+      - OBSERVER_CADENCE_SECONDS=10
+      - OBSERVER_STALE_SLACK_CYCLES=1
+      - OBSERVER_STAGING_STALE_AFTER_SECONDS=60
+      - OBSERVER_MAX_HEARTBEAT_BYTES=8192
+      - OBSERVER_MAX_FAULT_BYTES=8192
+      - OBSERVER_MAX_HALT_BYTES=8192
     volumes:
       # The store tree (SPEC 2). Every path has one writer and the
       # read-only flags are what make that true rather than agreed.

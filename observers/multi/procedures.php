@@ -1,6 +1,6 @@
 <?php
 
-namespace pr2obs\web;
+namespace pr2obs\multi;
 
 require_once __DIR__ . '/store.php';
 

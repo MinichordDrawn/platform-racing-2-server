@@ -7,6 +7,9 @@ COPY common/ /pr2/common
 COPY common/env.example.php /pr2/common/env.php
 COPY policy_server/ /pr2/policy_server
 COPY vend/ /pr2/vend
+# Only this container's own observer. It shares no code with any other
+# observer and loads nothing from the application.
+COPY observers/policy/ /pr2/observers/policy
 
 # Copy in custom config
 COPY docker/prepend_file.ini $PHP_INI_DIR/conf.d/
@@ -43,5 +46,7 @@ RUN mkdir -p /stores/web/copy /stores/web/halts \
 
 USER www-data
 
-# Run the policy server
-CMD ["php", "/pr2/policy_server/run_policy.php"]
+COPY docker/policy_server_startup.sh /policy_server_startup.sh
+
+# Run the policy server, with its observer alongside it
+CMD ["/policy_server_startup.sh"]

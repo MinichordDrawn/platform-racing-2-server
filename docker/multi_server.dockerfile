@@ -11,6 +11,9 @@ COPY common/env.example.php /pr2/common/env.php
 COPY functions/ /pr2/functions
 COPY multiplayer_server/ /pr2/multiplayer_server
 COPY vend/ /pr2/vend
+# Only this container's own observer. It shares no code with any other
+# observer and loads nothing from the application.
+COPY observers/multi/ /pr2/observers/multi
 COPY docker/prepend_file.ini $PHP_INI_DIR/conf.d/
 
 # This image has no served tree at all, so everything it reads and writes is
@@ -45,5 +48,8 @@ RUN mkdir -p /stores/web/copy /stores/web/halts \
 
 USER www-data
 
-# Run the gameserver
-ENTRYPOINT ["php", "pr2/multiplayer_server/pr2.php", "1", "true"]
+COPY docker/multi_server_startup.sh /multi_server_startup.sh
+
+# Run the gameserver, with its observer alongside it
+ENTRYPOINT []
+CMD ["/multi_server_startup.sh"]
