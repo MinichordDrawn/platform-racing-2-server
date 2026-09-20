@@ -1738,9 +1738,27 @@ class Game extends Room
 
     public function objectiveReached($player, $data)
     {
-        list($finish_id, $x, $y, $canon_ms) = explode('`', $data);
+        $parts = explode('`', $data);
+
+        if (count($parts) < 4) {
+            throw new \Exception('Malformed objective packet.');
+        }
+
+        list($finish_id, $x, $y, $canon_ms) = $parts;
+
+        // Reaching objectives after your own race is over still grew the count
+        // that everyone else is placed by.
+        if ($player->race_stats->finished_race) {
+            return;
+        }
 
         $this->verifyFinishPosition($x, $y, $finish_id);
+
+        // Recorded under a whole number. Keyed as it arrived, the several
+        // spellings of one number that the range test accepts became separate
+        // entries, so the same objective could be handed in again and again
+        // and the count could pass the number of objectives the race has.
+        $finish_id = (int) $finish_id;
 
         if (isset($player->race_stats->objectives_reached[$finish_id])) {
             throw new \Exception('This objective has already been reached.');
