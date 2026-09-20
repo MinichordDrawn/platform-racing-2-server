@@ -472,11 +472,29 @@ function procedure_v(Reader $R, string $A, array $own_entries, int $own_cadence)
     $result['observed'] = $cur['hash'];
 
     // V4 retired.
+    //
+    // Retirement changes the reason, not the verdict. The stop record exists
+    // so that whoever reads the stores afterwards can tell a deliberate
+    // shutdown from a death, and the verdict below still carries that. What it
+    // must not do is excuse the member's absence: a member that has stopped is
+    // not verifying the stores, which is the same fact about the ring as a
+    // member that has died, and the ring acts on the fact.
+    //
+    // This once reported only when the subject was the super observer, and the
+    // three members it did not name are exactly the three with work in their
+    // container. An observer and the work beside it share a container and a
+    // user, so the work can signal the observer, and the observer answers a
+    // signal by publishing the one record that told every peer to stop caring.
+    // A compromised container could retire its own observer and go unobserved
+    // while every peer reported the ring healthy.
+    //
+    // The cost is that stopping an observer deliberately stops the work it was
+    // watching. That is the right price: it leaves a container unobserved, and
+    // nothing here may run unobserved for any reason. The halt lifts by itself
+    // when the member returns.
     if ($cur['parsed']['stop'] === true) {
         $result['verdict'] = 'retired';
-        if ($A === 'super') {
-            $R->fail('member-fresh', $A, 'the super observer is stopped and is not verifying the stores');
-        }
+        $R->fail('member-fresh', $A, 'the member is stopped and is not verifying the stores');
         return $result;
     }
 
