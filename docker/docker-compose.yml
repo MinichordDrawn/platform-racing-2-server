@@ -4,9 +4,15 @@ services:
     build:
       context: ../
       dockerfile: docker/http_server.dockerfile
+    # Apache listens on 8080 inside, so nothing here needs privilege.
+    user: www-data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
-      - "80:80"
-      - "8080:80"
+      - "80:8080"
+      - "8080:8080"
     environment:
       - MULTI_INTERNAL_HOST=multi
       - MULTI_INTERNAL_PORT=9160
@@ -16,7 +22,8 @@ services:
       # tree the image ships, and nothing writes to it.
       - ../clients:/pr2/http_server/clients:ro
       # Everything the application writes. The served tree reaches these
-      # through symlinks created at startup, so their URLs are unchanged.
+      # through symlinks made when the image is built, so their URLs are
+      # unchanged and the tree itself never varies.
       - app-data:/pr2/data
       - ../../levels:/pr2/data/levels
       - ../../replays:/pr2/data/replays
@@ -25,10 +32,45 @@ services:
       - mysql
       - pr2hub-proxy
 
+  # The scheduler, from the same image as web. It is a service of its own
+  # because cron must start as root in order to drop to the unprivileged user
+  # the jobs themselves run as -- and keeping it separate means the container
+  # that serves has no root process in it at all. Nothing here listens.
+  cron:
+    build:
+      context: ../
+      dockerfile: docker/http_server.dockerfile
+    user: "0:0"
+    command: ["cron", "-f"]
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # The only thing root is kept for: dropping to www-data per job.
+      - SETUID
+      - SETGID
+    environment:
+      - MULTI_INTERNAL_HOST=multi
+      - MULTI_INTERNAL_PORT=9160
+      - PR2HUB_PROXY_URL=http://pr2hub-proxy:8080
+    volumes:
+      - app-data:/pr2/data
+      - ../../levels:/pr2/data/levels
+      - ../../replays:/pr2/data/replays
+      - shared-data:/pr2/shared
+    depends_on:
+      - mysql
+
   pr2hub-proxy:
     build:
       context: ../
       dockerfile: docker/pr2hub_proxy.dockerfile
+    user: proxy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       - PROXY_UPSTREAM_BASE=https://pr2hub.com
     volumes:
@@ -38,6 +80,11 @@ services:
     build:
       context: ../
       dockerfile: docker/multi_server.dockerfile
+    user: www-data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
       - "9160:9160"
     # depends_on:
@@ -55,11 +102,20 @@ services:
     build:
       context: ../
       dockerfile: docker/policy_server.dockerfile
+    user: www-data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # The Flash client dials 843. The process inside listens on 8843, which
+    # it can bind without privilege.
     ports:
-      - "843:843"
+      - "843:8843"
 
   mysql:
     image: mysql
+    security_opt:
+      - no-new-privileges:true
     environment:
       MYSQL_DATABASE: pr2
       MYSQL_USER: pr2
@@ -73,6 +129,11 @@ services:
       context: ../
       dockerfile: docker/liquibase.dockerfile
     command: update
+    user: liquibase
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       LIQUIBASE_URL: jdbc:mysql://mysql/pr2
       LIQUIBASE_USERNAME: root
@@ -88,6 +149,8 @@ services:
   adminer:
     image: adminer
     restart: always
+    security_opt:
+      - no-new-privileges:true
     ports:
       - 8081:8080
     depends_on:

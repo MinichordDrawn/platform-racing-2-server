@@ -14,5 +14,12 @@ COPY docker/prepend_file.ini $PHP_INI_DIR/conf.d/
 # install extensions
 RUN docker-php-ext-install pdo_mysql sockets
 
+# The Flash policy port is 843, which no unprivileged process may bind. The
+# host publishes 843 and maps it here, so the client dials what it always
+# did and this process needs no privilege to answer.
+ENV POLICY_PORT=8843
+
+USER www-data
+
 # Run the policy server
 CMD ["php", "/pr2/policy_server/run_policy.php"]

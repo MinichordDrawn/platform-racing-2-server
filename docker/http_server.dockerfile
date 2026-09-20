@@ -23,6 +23,13 @@ ENV APACHE_DOCUMENT_ROOT=/pr2/http_server
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
+# Listen where an unprivileged process is allowed to bind. The host still
+# publishes 80, so every address the client dials is unchanged, and the user
+# this container runs as stops being decided by the port number.
+ENV APACHE_LISTEN_PORT=8080
+RUN sed -ri "s/^Listen 80\$/Listen ${APACHE_LISTEN_PORT}/" /etc/apache2/ports.conf \
+    && sed -ri "s/<VirtualHost \*:80>/<VirtualHost *:${APACHE_LISTEN_PORT}>/" /etc/apache2/sites-available/*.conf
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     zip \
@@ -45,19 +52,41 @@ RUN cd /pr2 \
     && curl -sS https://getcomposer.org/installer | php \
     && php composer.phar install --no-dev --optimize-autoloader
 
-# Create a cron file that runs minute.php every minute
+# Create a cron file that runs the schedules
 COPY docker/minute-cron /etc/cron.d/minute-cron
 # Ensure LF endings (Windows checkouts can break cron) and correct perms
 RUN sed -i 's/\r$//' /etc/cron.d/minute-cron \
     && chmod 0644 /etc/cron.d/minute-cron
 
-# Ensure cron logs to stdout 
+# Ensure cron logs to stdout
 RUN ln -sf /proc/1/fd/1 /var/log/cron.log
 
 # Enable reverse proxy support for same-origin PR2Hub and WebSocket forwarding.
 RUN a2enmod proxy proxy_http proxy_wstunnel env \
     && a2enconf pr2hub_proxy
 
-# Run minute and hour cron when this service starts up to generate server and level list files
+# Everything the application writes lives under /pr2/data, outside the tree
+# this image ships. The served tree reaches each one through a symlink made
+# here rather than at startup, so the tree is complete and constant from the
+# moment the image is built -- which is what makes a hash of it mean
+# something. A symlink is the one thing that can sit in the served tree
+# without making it vary: its content is the target path, and that is fixed.
+RUN set -eux; \
+    for d in levels replays files emblems; do \
+        mkdir -p "/pr2/data/$d"; \
+        ln -s "/pr2/data/$d" "/pr2/http_server/$d"; \
+    done; \
+    chown -R www-data:www-data /pr2/data
+
+# Apache runs unprivileged, so the directories it writes at runtime have to
+# belong to the user it runs as.
+RUN mkdir -p /var/run/apache2 /var/lock/apache2 \
+    && chown -R www-data:www-data /var/log/apache2 /var/run/apache2 /var/lock/apache2
+
+# The safe default. The scheduler is a separate service from the same image
+# and overrides this, because cron has to start as root in order to drop to
+# this user for the jobs themselves.
+USER www-data
+
 ENTRYPOINT []
-CMD service cron start && /http_server_startup.sh
+CMD ["/http_server_startup.sh"]

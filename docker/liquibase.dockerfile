@@ -23,4 +23,11 @@ RUN curl -L -o /tmp/mysql-connector-java.tar.gz https://dev.mysql.com/get/Downlo
     && tar -xzf /tmp/mysql-connector-java.tar.gz -C /tmp \
     && cp /tmp/mysql-connector-java-${DRIVER_VERSION}/mysql-connector-java-${DRIVER_VERSION}.jar /opt/liquibase/lib/
 
+# A one-shot migration runner reads a changelog and talks to the database. It
+# has no reason to be root while doing either.
+RUN useradd --create-home --uid 10001 liquibase \
+    && chown -R liquibase:liquibase /opt/liquibase /scripts
+
+USER liquibase
+
 ENTRYPOINT ["/scripts/init-liquibase.sh"]
