@@ -129,6 +129,22 @@ function vault_delivery_reached_a_server($results)
 }
 
 
+// Whether an outcome from create_server delivered anything the buyer can use.
+//
+// Nothing wrote at all, and a row for a server nothing starts, are both
+// nothing: this package defines no way to start a server process, so a row
+// written for one that is not already running keeps the status its schema
+// gives it, the poller reads that as down, and every login to it is refused.
+//
+// Extending a server that is already running is the one outcome that delivers:
+// the expiry on the row moves, which is durable, and the running process is
+// told.
+function vault_server_purchase_delivered($status_code)
+{
+    return (int) $status_code === 2;
+}
+
+
 function vault_purchase_item($pdo, $user, $item, $price, $quantity = 1)
 {
     global $coins_deducted;
@@ -183,15 +199,20 @@ function vault_purchase_item($pdo, $user, $item, $price, $quantity = 1)
         $days = $quantity * ((int) explode('_', $slug)[1]);
         $result = create_server($pdo, $guild_id, $days);
 
-        if ($result->status_code === 0) {
-            throw new Exception('An error occurred. Please notify a member of the PR2 staff team for assistance.');
-        } elseif ($result->status_code === 1) {
-            $reply = 'The best server ever is starting up! It\'ll be ready in about 2 minutes.'
-                ."\n\n(Expiration time: ";
-        } elseif ($result->status_code === 2) {
-            $reply = 'The life of your private server has been extended! Long live your guild!'
-                ."\n\n(New expiration time: ";
+        // Only one of the outcomes hands the buyer something. This package
+        // defines nothing that starts a server process, so a row written for a
+        // server that is not already running is a server that never answers,
+        // and every login to it is refused. Raising here returns the coins.
+        if (!vault_server_purchase_delivered($result->status_code)) {
+            throw new Exception(
+                'A private server could not be started for your guild, so the purchase did not go '
+                . 'through and your coins have been returned. Please contact a member of the PR2 '
+                . 'staff team, who can set one up for you.'
+            );
         }
+
+        $reply = 'The life of your private server has been extended! Long live your guild!'
+            ."\n\n(New expiration time: ";
 
         $command = "extend_server_life`$guild_id`$result->new_time";
         $reply .= date('F j, Y \a\t g:ia T', $result->new_time) . ')';
@@ -282,9 +303,12 @@ function create_server($pdo, $guild_id, $days_of_life)
         if (!$existing_server) { // server doesn't exist in the db
             global $SERVER_IP;
 
-            // insert and start server
+            // The row is written. Nothing starts a process for it: this
+            // package defines no function that does, so the row keeps the
+            // status its schema gives it, the poller reads that as down, and
+            // every login to it is refused. The caller refuses the purchase on
+            // this outcome for that reason, and the buyer keeps their coins.
             $server_id = server_insert($pdo, $life_from_now, $server_name, $SERVER_IP, $port, $guild_id);
-            # start_server(PR2_ROOT . '/pr2.php', $port, $server_id, false, true);
 
             // return data
             $ret->new_time = $life_from_now;
@@ -300,19 +324,26 @@ function create_server($pdo, $guild_id, $days_of_life)
 
             // update info (and activate server if applicable)
             server_update_expire_time($pdo, $life_from_expiry, $server_id);
-            if (!$active) { // if it wasn't active, start the server
-                # start_server(PR2_ROOT . '/pr2.php', $port, $server_id, false, true);
-            }
+            // A row that is not active needs a process started for it, and
+            // nothing here starts one, so this outcome is refused by the
+            // caller in the same way a new row is.
 
             // return data
             $ret->new_time = $life_from_expiry;
             $ret->status_code = $active ? 2 : 1; // if server was inactive, return the new server message to user
         }
     } catch (Exception $e) {
-        unset($e);
-    } finally {
-        return $ret;
+        // The outcome stays at nothing, which the caller reads as a failure
+        // and returns the coins for. The reason it failed goes to the log
+        // rather than to the buyer, who cannot act on it, and rather than
+        // nowhere, which is where it went when this discarded the exception.
+        error_log('create_server failed for guild ' . (int) $guild_id . ': ' . $e->getMessage());
     }
+
+    // Returned here rather than from inside a finally block. A return in
+    // finally discards anything raised that the catch did not take, a fault
+    // that is not an exception included, so a failure could not be seen at all.
+    return $ret;
 }
 
 
