@@ -2,6 +2,66 @@
 
 
 // get the next login id
+// Whether a ban row has been lifted.
+//
+// The column is a BIT, which reaches PHP as a raw byte through some drivers
+// and as an integer or a digit through others. Casting "\x01" to an integer
+// gives zero, so every spelling is handled rather than assumed.
+function ban_row_lifted($ban)
+{
+    $lifted = isset($ban->lifted) ? $ban->lifted : 0;
+
+    if (is_bool($lifted)) {
+        return $lifted;
+    }
+
+    if (is_int($lifted)) {
+        return $lifted !== 0;
+    }
+
+    $lifted = (string) $lifted;
+
+    return $lifted !== '' && $lifted !== '0' && $lifted !== "\x00";
+}
+
+
+// Whether a ban row is one that is still in force.
+//
+// ban_select filters on neither of these, so without this a ban that had been
+// lifted or had already run out was as good as a current one.
+function ban_row_is_active($ban)
+{
+    if (!is_object($ban)) {
+        return false;
+    }
+
+    if (ban_row_lifted($ban)) {
+        return false;
+    }
+
+    return (int) $ban->expire_time > time();
+}
+
+
+// How much longer a ban row has to run. The endpoint that wrote the row capped
+// this by the acting moderator's rank, so it is the figure that was allowed
+// rather than the one the packet asked for.
+function ban_row_seconds_remaining($ban)
+{
+    $remaining = (int) $ban->expire_time - time();
+
+    return $remaining > 0 ? $remaining : 0;
+}
+
+
+// Whether a ban row is a social ban. The endpoint settled this to g or s when
+// it wrote the row.
+function ban_row_is_social($ban)
+{
+    return (string) $ban->scope === 's';
+}
+
+
 // Whether a value can be a course id, which is to say a level id.
 //
 // A course id is not only stored. It goes into the name of the startGame

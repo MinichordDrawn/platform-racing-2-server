@@ -221,18 +221,17 @@ function client_unmute($socket, $data)
 // ban a player
 function client_ban($socket, $data)
 {
-    list($banned_name, $seconds, $scope, $ban_id, $reason) = explode("`", $data);
+    $parts = explode("`", $data);
+
+    if (count($parts) < 4) {
+        throw new Exception('Malformed ban packet.');
+    }
+
+    list($banned_name, , , $ban_id) = $parts;
 
     // get player info
     $mod = $socket->getPlayer();
     $banned = name_to_player($banned_name);
-
-    // reason
-    $reason = htmlspecialchars($reason, ENT_QUOTES);
-    $reason = $reason === '' ? 'There was no reason given' : "Reason: $reason";
-
-    // make friendly time
-    $duration = format_duration($seconds);
 
     // tell the world
     if ($mod->group >= 2 && isset($banned) && ($banned->group < 2 || $banned->temp_mod)) {
@@ -242,10 +241,27 @@ function client_ban($socket, $data)
             $mod->write('message`Error: Invalid ban ID sent to server.');
             return;
         }
-        
+
+        // The ban is the row, not the packet. The endpoint that wrote it
+        // capped the length by the acting moderator's rank and settled the
+        // scope and the reason, so those are read from it here. The packet
+        // says which ban to announce and nothing else.
+        if (!ban_row_is_active($ban)) {
+            $mod->write('message`Error: That ban is no longer in force.');
+            return;
+        }
+
+        $seconds = ban_row_seconds_remaining($ban);
+        $is_social = ban_row_is_social($ban);
+
+        $reason = htmlspecialchars((string) $ban->reason, ENT_QUOTES);
+        $reason = $reason === '' ? 'There was no reason given' : "Reason: $reason";
+
+        $duration = format_duration($seconds);
+
         $mod_url = userify($mod, $mod->name);
-        $name_url = userify($banned, $banned_name);
-        $scope_lang = $scope === 'game' ? 'banned' : 'socially banned';
+        $name_url = userify($banned, $banned->name);
+        $scope_lang = $is_social ? 'socially banned' : 'banned';
 
         // send notif to chat
         if (isset($mod->chat_room)) {
@@ -265,10 +281,10 @@ function client_ban($socket, $data)
         global $player_array;
         foreach ($player_array as $player) {
             if ($banned->ip === $player->ip) {
-                if ($scope === 'social') {
+                if ($is_social) {
                     // if this isn't the most severe, it will update at the top of the minute
                     $player->sban_id = (int) $ban_id;
-                    $player->sban_exp_time = time() + $seconds;
+                    $player->sban_exp_time = (int) $ban->expire_time;
                 } else {
                     $player->remove();
                 }
