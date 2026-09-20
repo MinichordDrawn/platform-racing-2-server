@@ -504,19 +504,21 @@ class Game extends Room
     }
 
 
-    public function finishDrawing($player, $data = null)
+    // The rules arrive read. Reading them by position meant a packet a field
+    // short left the last rule unset rather than being refused, and one field
+    // longer was taken for the first six and the rest ignored.
+    public function finishDrawing($player, array $fields = null)
     {
         if ($player->race_stats->drawing === true) {
-            $arr = explode('`', $data);
             $player->race_stats->drawing = false;
-            if (isset($data)) {
+            if ($fields !== null) {
                 $rs = $player->race_stats;
-                $rs->level_hash = $arr[0];
-                $rs->mode = $arr[1];
-                $rs->finish_positions = $arr[2];
-                $rs->finish_count = $arr[3];
-                $rs->cowboy_chance = $arr[4];
-                $rs->bad_hats = $arr[5];
+                $rs->level_hash = $fields['level_hash'];
+                $rs->mode = $fields['mode'];
+                $rs->finish_positions = $fields['finish_positions'];
+                $rs->finish_count = $fields['finish_count'];
+                $rs->cowboy_chance = $fields['cowboy_chance'];
+                $rs->bad_hats = $fields['bad_hats'];
             }
             $this->sendToAll('finishDrawing`'.$player->temp_id);
         }
@@ -766,7 +768,11 @@ class Game extends Room
     }
 
 
-    public function remoteFinishRace($player, $data)
+    // The identifier, the position and the client's own time arrive read. Each
+    // was taken from the packet here with a value of its own supplied when the
+    // field was not there, so a packet short of its position finished the
+    // player at the origin instead of being refused.
+    public function remoteFinishRace($player, $finish_id, $x, $y, $canon_ms)
     {
         // Ignore late finish packets after the player has already been removed from the race.
         if (!isset($player->race_stats)) {
@@ -776,15 +782,9 @@ class Game extends Room
         if ($this->isStillPlaying($player->temp_id)) {
             $local_finish_ms = null;
             $treatedAsQuit = false;
-            $parts = explode('`', $data);
-            $finish_id = isset($parts[0]) ? (int) $parts[0] : 0;
 
             if ($this->mode == self::MODE_RACE) {
-                $x = isset($parts[1]) ? (int) $parts[1] : 0;
-                $y = isset($parts[2]) ? (int) $parts[2] : 0;
-                if (isset($parts[3]) && is_numeric($parts[3])) {
-                    $local_finish_ms = (int) $parts[3];
-                }
+                $local_finish_ms = $canon_ms;
                 $this->verifyFinishPosition($x, $y, $finish_id);
             } elseif ($this->mode == self::MODE_DEATHMATCH) {
                 if ($finish_id === -1) {
@@ -1764,16 +1764,8 @@ class Game extends Room
     }
 
 
-    public function objectiveReached($player, $data)
+    public function objectiveReached($player, $finish_id, $x, $y, $canon_ms)
     {
-        $parts = explode('`', $data);
-
-        if (count($parts) < 4) {
-            throw new \Exception('Malformed objective packet.');
-        }
-
-        list($finish_id, $x, $y, $canon_ms) = $parts;
-
         // Reaching objectives after your own race is over still grew the count
         // that everyone else is placed by.
         if ($player->race_stats->finished_race) {
@@ -1782,12 +1774,11 @@ class Game extends Room
 
         $this->verifyFinishPosition($x, $y, $finish_id);
 
-        // Recorded under a whole number. Keyed as it arrived, the several
-        // spellings of one number that the range test accepts became separate
-        // entries, so the same objective could be handed in again and again
-        // and the count could pass the number of objectives the race has.
-        $finish_id = (int) $finish_id;
-
+        // Recorded under a whole number, which is what it is read as. Keyed as
+        // it arrived, the several spellings of one number that the range test
+        // accepts became separate entries, so the same objective could be
+        // handed in again and again and the count could pass the number of
+        // objectives the race has.
         if (isset($player->race_stats->objectives_reached[$finish_id])) {
             throw new \Exception('This objective has already been reached.');
         }

@@ -201,7 +201,20 @@ function client_finish_drawing($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
-        $player->game_room->finishDrawing($player, $data);
+        // The rules of the level being raced, as the clients in the race
+        // report them. Declaring the shape does not settle whether the rules
+        // are the level's: this server holds no catalogue of levels and cannot
+        // read one, so the rules remain what the clients voted for. What this
+        // settles is that there are six of them and what each one is.
+        $fields = packet_fields($data, array(
+            'level_hash' => 'text',
+            'mode' => 'word',
+            'finish_positions' => 'text',
+            'finish_count' => 'uint',
+            'cowboy_chance' => 'uint',
+            'bad_hats' => 'text?',
+        ));
+        $player->game_room->finishDrawing($player, $fields);
     }
 }
 
@@ -211,7 +224,22 @@ function client_finish_race($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
-        $player->game_room->remoteFinishRace($player, $data);
+        // The identifier is signed because one value of it says the player
+        // gave up rather than finished. The position is checked against where
+        // the finish block is, and the time against what the server measured.
+        $fields = packet_fields($data, array(
+            'finish_id' => 'num',
+            'x' => 'num',
+            'y' => 'num',
+            'canon_ms' => 'uint',
+        ));
+        $player->game_room->remoteFinishRace(
+            $player,
+            (int) $fields['finish_id'],
+            (int) $fields['x'],
+            (int) $fields['y'],
+            $fields['canon_ms']
+        );
     }
 }
 
@@ -231,7 +259,10 @@ function client_grab_egg($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
-        $player->game_room->grabEgg($player, $data);
+        // A whole number here, and the room says whether it names an egg this
+        // race actually has.
+        $fields = packet_fields($data, array('egg_id' => 'uint'));
+        $player->game_room->grabEgg($player, $fields['egg_id']);
     }
 }
 
@@ -241,7 +272,21 @@ function client_objective_reached($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
-        $player->game_room->objectiveReached($player, $data);
+        // The identifier is recorded under a whole number, so it is read as
+        // one rather than cast to one after the fact.
+        $fields = packet_fields($data, array(
+            'finish_id' => 'uint',
+            'x' => 'num',
+            'y' => 'num',
+            'canon_ms' => 'uint',
+        ));
+        $player->game_room->objectiveReached(
+            $player,
+            $fields['finish_id'],
+            (int) $fields['x'],
+            (int) $fields['y'],
+            $fields['canon_ms']
+        );
     }
 }
 
@@ -259,6 +304,10 @@ function client_resume_race_state($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room) && $player->game_room instanceof \pr2\multi\Game) {
-        $player->game_room->resumeRaceState($player, $data);
+        // One field holding the whole resume report. It is read as a document
+        // further in; this says it arrived whole and carries nothing that
+        // would end a message or add a field.
+        $fields = packet_fields($data, array('payload' => 'text'));
+        $player->game_room->resumeRaceState($player, $fields['payload']);
     }
 }
