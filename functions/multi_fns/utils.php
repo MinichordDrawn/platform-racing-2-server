@@ -2,11 +2,31 @@
 
 
 // get the next login id
+// An id for a connection that is waiting to be logged in.
+//
+// This is the only thing tying a socket connection to the login that arrives
+// for it over the control channel, so it has to be unguessable. Handed out in
+// sequence, anyone could take one, know what the next ones would be, and name
+// somebody else's pending id in their own login so that their account was
+// registered onto a connection that was not theirs. The blob carrying the id
+// is encrypted with a fixed key and carries nothing that authenticates it, so
+// its contents do not stand in the way of that.
+//
+// Kept inside the signed 32 bit range because the id passes through the client
+// on its way back.
 function get_login_id()
 {
-    static $cur_login_id = 0;
-    $cur_login_id++;
-    return $cur_login_id;
+    global $login_array;
+
+    for ($attempt = 0; $attempt < 100; $attempt++) {
+        $id = random_int(1, 2147483647);
+
+        if (!isset($login_array[$id])) {
+            return $id;
+        }
+    }
+
+    throw new Exception('Could not allocate a login id.');
 }
 
 

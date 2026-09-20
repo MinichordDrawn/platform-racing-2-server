@@ -217,6 +217,19 @@ function process_register_login($server_socket, $data)
         $socket = @$login_array[$login_id];
         unset($login_array[$login_id]);
 
+        // The id has to match a connection that is waiting for it. Nothing
+        // else says which connection this login belongs to, so without a match
+        // there is nobody to register. The caller is told, rather than left
+        // waiting on a reply that never comes, and nothing below runs against
+        // a connection that is not there.
+        if (!isset($socket)) {
+            output("Refused a login for an id that no connection is waiting on: $login_id");
+            $ret = new stdClass();
+            $ret->success = false;
+            $server_socket->write(json_encode($ret));
+            return;
+        }
+
         $kick_time = \pr2\multi\ServerBans::remainingTime($login_obj->user->name, $socket->ip);
 
         // elseif ($login_obj->login->ip !== $socket->ip) {
