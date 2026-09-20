@@ -52,7 +52,7 @@ const CONTAINER_PHP_VERSION = '8.2';
 // Nothing beyond what PHP builds in. The observer needs hashing and JSON and
 // no more, and an extension this image does not install appearing at runtime
 // is caught by the baseline rather than by a declaration.
-const CONTAINER_EXTENSIONS = array();
+const CONTAINER_EXTENSIONS = array('pcntl');
 
 const CONTAINER_CODE_PATHS = array(
     '/pr2/observers/super',

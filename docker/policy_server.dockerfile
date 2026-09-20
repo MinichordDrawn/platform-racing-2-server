@@ -23,7 +23,7 @@ COPY observers/policy/ /pr2/observers/policy
 COPY docker/prepend_file.ini $PHP_INI_DIR/conf.d/
 
 # install extensions
-RUN docker-php-ext-install pdo_mysql sockets
+RUN docker-php-ext-install pdo_mysql sockets pcntl
 
 # The Flash policy port is 843, which no unprivileged process may bind. The
 # host publishes 843 and maps it here, so the client dials what it always

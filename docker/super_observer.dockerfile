@@ -11,6 +11,17 @@
 # with no dependencies is the easiest thing to move.
 FROM php:8.2-cli
 
+# The one extension this image installs, and the only thing in it that is
+# not the observer itself.
+#
+# The observer handles a termination signal so that a member stopped on
+# purpose records the stop rather than reading as a death. Installing the
+# handler needs this, and without it the handler is never installed, the
+# signal kills the process outright, and the mechanism is dead code that
+# says nothing about being dead. Every observer declares it, so an image
+# that loses it faults rather than going quiet.
+RUN docker-php-ext-install pcntl
+
 # The store tree (SPEC 2). Mount points created here and owned by the user the
 # observer runs as, so a named volume mounted over one inherits that ownership
 # rather than arriving owned by root. No heartbeat directories: a store root

@@ -38,7 +38,7 @@ require_once __DIR__ . '/procedures.php';
 const CONTAINER_PHP_VERSION = '8.2';
 
 // Installed by the image, over and above what PHP builds in.
-const CONTAINER_EXTENSIONS = array('pdo_mysql', 'apcu');
+const CONTAINER_EXTENSIONS = array('pdo_mysql', 'apcu', 'pcntl');
 
 // The code this image ships. Everything under these paths is fixed at build
 // time and must not change while the container runs.

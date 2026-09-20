@@ -37,7 +37,7 @@ require_once __DIR__ . '/procedures.php';
 
 const CONTAINER_PHP_VERSION = '8.2';
 
-const CONTAINER_EXTENSIONS = array('pdo_mysql', 'sockets');
+const CONTAINER_EXTENSIONS = array('pdo_mysql', 'sockets', 'pcntl');
 
 // This image never copies http_server in, so it has no served tree at all.
 const CONTAINER_CODE_PATHS = array(

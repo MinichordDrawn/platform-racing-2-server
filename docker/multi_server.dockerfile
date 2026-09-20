@@ -2,7 +2,7 @@
 FROM php:8.2-cli
 
 # Install extensions
-RUN docker-php-ext-install pdo_mysql sockets
+RUN docker-php-ext-install pdo_mysql sockets pcntl
 
 # Copy in php code
 COPY config.php /pr2/

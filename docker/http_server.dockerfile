@@ -43,7 +43,7 @@ ENV MULTI_INTERNAL_HOST=multi
 ENV MULTI_INTERNAL_PORT=9160
 
 # Install extensions
-RUN docker-php-ext-install pdo_mysql
+RUN docker-php-ext-install pdo_mysql pcntl
 
 # Install pecl extensions
 RUN pear config-set php_ini "$PHP_INI_DIR/php.ini" \
