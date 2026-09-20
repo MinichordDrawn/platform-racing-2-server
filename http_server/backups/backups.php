@@ -5,6 +5,7 @@ require_once HTTP_FNS . '/output_fns.php';
 require_once QUERIES_DIR . '/level_backups.php';
 require_once QUERIES_DIR . '/new_levels.php';
 
+$token = default_post('token', '');
 $ip = get_ip();
 $desc = "<p><center>".
         "Welcome to PR2's level restore system!<br>".
@@ -26,6 +27,9 @@ try {
 
     // output mod nav if they're a mod
     $staff = is_staff($pdo, $user_id, false);
+
+    // the request has to carry the session token as well as the cookie
+    require_posted_token($pdo, $user_id, $token);
     output_header('Level Backups', $staff->mod, $staff->admin);
 
     // restore a backup

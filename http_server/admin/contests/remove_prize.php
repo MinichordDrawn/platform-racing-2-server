@@ -8,6 +8,7 @@ require_once QUERIES_DIR . '/contest_prizes.php';
 
 $ip = get_ip();
 $contest_id = (int) find_no_cookie('contest_id', 0);
+$token = default_post('token', '');
 $action = default_post('action', 'form');
 
 try {
@@ -25,6 +26,9 @@ try {
 
     // make sure you're an admin
     $admin = check_moderator($pdo, null, true, 3);
+
+    // the request has to carry the session token as well as the cookie
+    require_posted_token($pdo, $admin->user_id, $token);
 
     // get contest info
     $contest = contest_select($pdo, $contest_id, false, true);

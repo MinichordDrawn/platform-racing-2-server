@@ -8,6 +8,7 @@ require_once QUERIES_DIR . '/mod_actions.php';
 require_once QUERIES_DIR . '/messages_reported.php';
 require_once QUERIES_DIR . '/levels_reported.php';
 
+$token = default_post('token', '');
 $message_id = (int) default_post('message_id', 0);
 
 $level_id = (int) default_post('level_id', 0);
@@ -35,6 +36,9 @@ try {
 
     // make sure you're at least a full moderator
     $mod = check_moderator($pdo);
+
+    // the request has to carry the session token as well as the cookie
+    require_posted_token($pdo, $mod->user_id, $token);
     if ($mod->trial_mod) {
         throw new Exception('You lack the power to access this resource.');
     }

@@ -6,6 +6,7 @@ require_once HTTP_FNS . '/pages/mod/ban_edit_fns.php';
 require_once QUERIES_DIR . '/bans.php';
 require_once QUERIES_DIR . '/mod_actions.php';
 
+$token = default_post('token', '');
 $action = default_post('action', 'edit');
 $ban_id = (int) default_get('ban_id', 0);
 $ip = get_ip();
@@ -20,6 +21,9 @@ try {
 
     // make sure you're a full moderator
     $mod = check_moderator($pdo);
+
+    // the request has to carry the session token as well as the cookie
+    require_posted_token($pdo, $mod->user_id, $token);
     if ($mod->trial_mod) {
         throw new Exception('You lack the power to access this resource. Please ask a moderator to edit this ban.');
     }

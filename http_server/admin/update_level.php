@@ -8,6 +8,7 @@ require_once QUERIES_DIR . '/level_backups.php';
 // variables
 $ip = get_ip();
 $level_id = (int) default_get('id', 0);
+$token = default_post('token', '');
 $action = default_post('action', 'lookup');
 
 try {
@@ -20,6 +21,9 @@ try {
 
     // make sure you're an admin
     $admin = check_moderator($pdo, null, true, 3);
+
+    // the request has to carry the session token as well as the cookie
+    require_posted_token($pdo, $admin->user_id, $token);
 
     // build page
     if ($action === 'lookup') {

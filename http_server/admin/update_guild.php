@@ -7,6 +7,7 @@ require_once QUERIES_DIR . '/guild_transfers.php';
 
 $ip = get_ip();
 $guild_id = (int) default_get('guild_id', 0);
+$token = default_post('token', '');
 $action = default_post('action', 'lookup');
 
 try {
@@ -19,6 +20,9 @@ try {
 
     // make sure you're an admin
     $admin = check_moderator($pdo, null, true, 3);
+
+    // the request has to carry the session token as well as the cookie
+    require_posted_token($pdo, $admin->user_id, $token);
 
     // build page
     if ($action === 'lookup') {

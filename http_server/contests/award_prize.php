@@ -29,6 +29,9 @@ try {
     // determine user id
     $user_id = (int) token_login($pdo);
     $is_staff = is_staff($pdo, $user_id, false);
+
+    // the request has to carry the session token as well as the cookie
+    require_posted_token($pdo, $user_id, $token);
     $is_mod = $is_staff->mod;
     $is_admin = $is_staff->admin;
 
@@ -151,6 +154,7 @@ try {
         require_trusted_ref('award prizes');
 
         // make some nice variables
+$token = default_post('token', '');
         $winner_name = default_post('winner_name', '');
         $comment = default_post('comment', '');
 

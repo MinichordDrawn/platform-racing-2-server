@@ -7,6 +7,7 @@ require_once QUERIES_DIR . '/messages.php';
 require_once QUERIES_DIR . '/mod_actions.php';
 require_once QUERIES_DIR . '/servers.php';
 
+$token = default_post('token', '');
 $guild_id = (int) default_post('guild_id', 0);
 $note = filter_swears(default_post('note', ''));
 $guild_name = filter_swears(default_post('name', ''));
@@ -56,6 +57,9 @@ try {
             throw new Exception('You are not the owner of this guild.');
         } else {
             $mod = is_staff($pdo, $user_id);
+
+    // the request has to carry the session token as well as the cookie
+    require_posted_token($pdo, $user_id, $token);
             if ($mod->trial) {
                 throw new Exception('You lack the power to edit this guild.');
             }
