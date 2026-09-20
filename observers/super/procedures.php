@@ -28,6 +28,14 @@ class Reader
     public $unchanged = array();
 
     public $findings = array();   // ordered: ['check','subject','detail']
+
+    // Whether the work in this container was running when this cycle looked:
+    // true, false, or null if it has not looked or there is no work to look
+    // for. It is an answer rather than the absence of a finding, because "the
+    // work was not reported" is true both when it is running and when it was
+    // not yet due, and only one of those should start the caller's latch.
+    public $work_alive = null;
+
     public $members = array();    // identity => ['verdict','cur','hash','entries','folder_present']
     public $halts_found = array(); // relative path => bytes, in discovery order
 

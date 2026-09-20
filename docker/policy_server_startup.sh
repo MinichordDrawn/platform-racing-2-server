@@ -14,6 +14,27 @@
 # door, and can be stopped by a bug in the very thing it is watching.
 php -d auto_prepend_file= /pr2/observers/policy/run.php &
 
+# The first-write barrier: the policy server does not start until the observer
+# above has written a heartbeat the gate accepts and nothing anywhere has
+# halted.
+#
+# At the first moment of a deployment nothing has written anything, so the rule
+# "stop unless an observer is alive" would stop every deployment on the way up.
+# This is the stricter of the two ways out of that: rather than have the work
+# tolerate an absent heartbeat for a while, the observer running becomes a
+# precondition of working at all.
+#
+# It waits for as long as it takes, which is what keeps the observer above
+# alive while it waits -- and what makes this container recoverable. The policy
+# server exits on a refusal at boot, the restart policy brings the container
+# back, and it arrives here and waits with its observer running rather than
+# dying in a loop with the ring a member short.
+#
+# Run with the prepend disabled for the same reason as the observer, and one
+# more: config.php refuses by exiting, so a barrier behind it would exit
+# instead of waiting, which is the one thing it is for.
+php -d auto_prepend_file= /pr2/common/observer_gate_wait.php
+
 # the policy server is the container's foreground process, so if it exits the container
 # exits and the observer goes with it.
 exec php /pr2/policy_server/run_policy.php

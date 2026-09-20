@@ -1,4 +1,11 @@
-* * * * * www-data /usr/local/bin/php /pr2/common/cron/minute.php >> /var/log/cron.log 2>&1
-0 * * * * www-data /usr/local/bin/php /pr2/common/cron/hourly.php >> /var/log/cron.log 2>&1
-15 4 * * * www-data /usr/local/bin/php /pr2/common/cron/daily.php >> /var/log/cron.log 2>&1
-45 5 * * 1 www-data /usr/local/bin/php /pr2/common/cron/weekly.php >> /var/log/cron.log 2>&1
+# The schedules go through common/cron/run.php rather than straight at the
+# job, and with the prepend disabled. Both are the coupling: the wrapper reads
+# the observer network itself, and when the ring says stop it writes a trace
+# recording the refusal instead of doing the work. Refusing in config.php --
+# where every other short-lived runtime is refused -- would refuse silently,
+# and a job refused silently is indistinguishable from a job that has stopped
+# running, which is a fault, which is a halt, which is what stopped the job.
+* * * * * www-data /usr/local/bin/php -d auto_prepend_file= /pr2/common/cron/run.php minute >> /var/log/cron.log 2>&1
+0 * * * * www-data /usr/local/bin/php -d auto_prepend_file= /pr2/common/cron/run.php hourly >> /var/log/cron.log 2>&1
+15 4 * * * www-data /usr/local/bin/php -d auto_prepend_file= /pr2/common/cron/run.php daily >> /var/log/cron.log 2>&1
+45 5 * * 1 www-data /usr/local/bin/php -d auto_prepend_file= /pr2/common/cron/run.php weekly >> /var/log/cron.log 2>&1

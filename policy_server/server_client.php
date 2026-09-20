@@ -7,6 +7,17 @@ class ServerClient extends \chabot\SocketServerClient
 
     public function onRead()
     {
+        // Stops answering.
+        //
+        // A Flash client that gets no policy file does not connect to the game
+        // at all, so this is a real stop and not a cosmetic one. What arrived
+        // is thrown away rather than held, so that a server which has stopped
+        // does not answer a queue of requests the instant the ring clears.
+        if (Server::$halted !== null) {
+            $this->read_buffer = '';
+            return;
+        }
+
         if ($this->read_buffer == '<policy-file-request/>'.chr(0x00)) {
             $this->read_buffer = '';
             $this->write(get_policy_file().chr(0x00));

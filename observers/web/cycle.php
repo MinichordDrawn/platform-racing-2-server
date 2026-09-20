@@ -257,8 +257,15 @@ function run_cycle(array $config): array
     //    per-observer content with identifiers each observer chooses, and a
     //    fixture is a store on disk with no container around it. run.php
     //    always supplies one, and a test asserts that it does.
+    //
+    //    work_due answers "should the work in this container have started by
+    //    now". The caller owns that clock, because it is the caller that knows
+    //    when this process started and whether it has seen the work alive
+    //    since. A caller that says nothing -- every fixture, and every test
+    //    that runs a cycle against a store on disk -- gets the assertion,
+    //    because the default has to be the strict one.
     if (isset($config['container_baseline'])) {
-        check_container($R, $config['container_baseline']);
+        check_container($R, $config['container_baseline'], $config['work_due'] ?? true);
     }
 
     if (!empty($config['traces'])) {
@@ -423,5 +430,9 @@ function run_cycle(array $config): array
         'clears'               => $clears,
         'findings'             => $R->findings,
         'others'               => identity_order($R->others),
+        // Whether the work was running when this cycle looked. The caller
+        // latches it: once the work has been seen, its disappearance is a
+        // fault however new the container is.
+        'work_alive'           => $R->work_alive,
     );
 }

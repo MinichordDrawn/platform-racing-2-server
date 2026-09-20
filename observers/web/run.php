@@ -66,6 +66,22 @@ $identity = required_string('OBSERVER_IDENTITY');
 // reports I1 against every other. The floor equalises them, because every
 // cycle is shorter than it.
 $min_cycle_ms = required_int('OBSERVER_MIN_CYCLE_MS', 0, 60000);
+
+// How long after this process starts the work in this container is allowed to
+// take before its absence is a fault.
+//
+// It exists because the coupling makes the work wait for the ring, and the
+// process and port checks make the ring wait for the work. Without a grace the
+// two deadlock on a cold start: the barrier waits for a clear ring, the ring
+// is not clear because the work is not running, and the work is not running
+// because the barrier is waiting. Every statement true, and nothing starts
+// ever again.
+//
+// It must exceed the time a cold start takes to reach a clear ring and a
+// listening process, or it expires while the barrier is still legitimately
+// waiting and the deadlock is back. It is a ceiling on how long work that is
+// never coming stays unreported, so it should not be larger than it has to be.
+$work_grace = required_int('OBSERVER_WORK_START_GRACE_SECONDS', 1, 3600);
 $stores   = getenv('OBSERVER_STORES') ?: '/stores';
 
 // Traces live in the application's own volume, because the work writes them
@@ -194,6 +210,23 @@ if (function_exists('pcntl_async_signals')) {
 
 // --- the loop --------------------------------------------------------------
 
+// The work has been seen running at least once since this process started.
+//
+// A latch rather than a per-cycle answer, and the asymmetry is the point:
+// before the work has ever appeared, its absence is explained by the barrier
+// that is holding it back, and after it has appeared once, nothing explains
+// its absence. So a work process that starts and then dies inside the grace is
+// reported immediately rather than waiting the grace out.
+//
+// It resets when this process does, which is correct: the grace covers the gap
+// between a container starting and its work being admitted, and that gap
+// begins again on every restart. This is the opposite of the clock the trace
+// check uses, deliberately -- there, the durable sequence is what stops a
+// schedule being granted a fresh period of grace every time the container
+// bounced.
+$work_seen = false;
+$process_started = time();
+
 while (true) {
     $began = hrtime(true);
     $state['params']['now'] = gmdate('Y-m-d\TH:i:s\Z');
@@ -214,6 +247,7 @@ while (true) {
         'unchanged'       => $state['unchanged'] ?? array(),
         'own_store_writable' => $writable,
         'container_baseline' => $container_baseline,
+        'work_due'        => $work_seen || (time() - $process_started) >= $work_grace,
         'traces_root'     => $traces,
         'traces'          => schedules_config(),
         // T4 asks the database whether the work the trace claims was done
@@ -222,6 +256,14 @@ while (true) {
         // already implemented and exercised by the fixtures.
         'db'              => array(),
     ));
+
+    if ($plan['work_alive'] === true && !$work_seen) {
+        $work_seen = true;
+        log_line($state['log'], 'work-seen', array(
+            'observer' => $identity,
+            'after'    => time() - $process_started,
+        ));
+    }
 
     if ($stopping) {
         $plan['publish']['stop'] = true;

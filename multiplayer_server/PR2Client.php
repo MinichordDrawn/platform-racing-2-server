@@ -135,6 +135,22 @@ class PR2Client extends \chabot\SocketServerClient
 
     public function onRead()
     {
+        // Stops acting on packets.
+        //
+        // Everything a packet can ask for runs from here, so this is the one
+        // place that has to hold for all of them. What arrived is thrown away
+        // rather than kept: a halted server that buffered would act on the
+        // whole backlog the moment the ring cleared, which is the opposite of
+        // having stopped.
+        //
+        // The connection is left open. Nothing is told why, because nothing
+        // here knows whether the client is the reason.
+        if (PR2SocketServer::$halted !== null) {
+            $this->read_buffer = '';
+            $this->app_read_buffer = '';
+            return;
+        }
+
         if ($this->transport_mode === null) {
             if ($this->isWebSocketHandshake($this->read_buffer)) {
                 if (!$this->performWebSocketHandshake()) {

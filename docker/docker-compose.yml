@@ -17,6 +17,24 @@ services:
       - MULTI_INTERNAL_HOST=multi
       - MULTI_INTERNAL_PORT=9160
       - PR2HUB_PROXY_URL=http://pr2hub-proxy:8080
+      # The gate. Before every request and every cron run, the work reads the
+      # observer on its own host and the super observer, and stops if either is
+      # not alive or anything anywhere has halted. Continuous, not a boot
+      # check: a heartbeat that is missing or stale counts as halted, and the
+      # question is asked again by the next request.
+      #
+      # Required rather than defaulted, on the same grounds as the observer's
+      # own values below: these decide how long the work may run unobserved,
+      # and a number in code is a number no review of a deployment ever sees.
+      #
+      # The local window is tight because the observer and the work share a
+      # clock. The super window is loose because they do not, and it can afford
+      # to be: the local observer already judges the super observer every cycle
+      # by a method that needs no clock at all.
+      - OBSERVER_STORES=/stores
+      - OBSERVER_LOCAL=web
+      - OBSERVER_LOCAL_MAX_AGE_SECONDS=8
+      - OBSERVER_SUPER_MAX_AGE_SECONDS=20
       # The observer. Everything SPEC.md lists under "Values to be set" is
       # required here rather than defaulted in code, so that a deployment
       # states them where they can be reviewed.
@@ -25,6 +43,15 @@ services:
       # the next begins when the previous ends. This is the longest a cycle
       # may take and still count as verifying the system.
       - OBSERVER_IDENTITY=web
+      # How long after an observer starts the work in its container may take
+      # before its absence is a fault. It must exceed a cold start -- the ring
+      # reaching a clear state and the work reaching its listening socket --
+      # or it expires while the barrier is still legitimately waiting, and the
+      # two deadlock: the barrier waits for a clear ring, the ring is not clear
+      # because the work is not running, the work is not running because the
+      # barrier is waiting. It is also the ceiling on how long work that is
+      # never coming goes unreported, so it is no larger than it has to be.
+      - OBSERVER_WORK_START_GRACE_SECONDS=120
       - OBSERVER_CADENCE_SECONDS=6
       - OBSERVER_MIN_CYCLE_MS=300
       - OBSERVER_HEARTBEAT_MAX_AGE_SECONDS=8
@@ -93,11 +120,50 @@ services:
       - MULTI_INTERNAL_HOST=multi
       - MULTI_INTERNAL_PORT=9160
       - PR2HUB_PROXY_URL=http://pr2hub-proxy:8080
+      # The gate. Every job is its own process and every process passes through
+      # config.php, so this is the whole of the coupling here: a job whose
+      # observer is not alive, or that finds a halt anywhere, does not start.
+      #
+      # OBSERVER_LOCAL is `web` and this container holds no observer of its
+      # own. That is a real gap and it is named rather than papered over: the
+      # scheduler was split out of the web container in 0c because cron must
+      # start as root, and what watches it is the web observer reading the
+      # traces its jobs write, from the next container along. The heartbeat
+      # this gate reads therefore attests that the web container is intact, not
+      # that this one is. Closing it means a fifth member of the ring.
+      - OBSERVER_STORES=/stores
+      - OBSERVER_LOCAL=web
+      - OBSERVER_LOCAL_MAX_AGE_SECONDS=8
+      - OBSERVER_SUPER_MAX_AGE_SECONDS=20
     volumes:
       - app-data:/pr2/data
       - ../../levels:/pr2/data/levels
       - ../../replays:/pr2/data/replays
       - shared-data:/pr2/shared
+      # The store tree, read-only in every path. This container runs work and
+      # holds no observer, so it is the one place that reads the whole tree and
+      # writes to none of it.
+      #   multi
+      - store-multi:/stores/multi:ro
+      - multi-copy:/stores/multi/copy:ro
+      - multi-copy-super:/stores/multi/copy-super:ro
+      - multi-halts:/stores/multi/halts:ro
+      #   policy
+      - store-policy:/stores/policy:ro
+      - policy-copy:/stores/policy/copy:ro
+      - policy-copy-super:/stores/policy/copy-super:ro
+      - policy-halts:/stores/policy/halts:ro
+      #   super
+      - store-super:/stores/super:ro
+      - super-copy-multi:/stores/super/copy-multi:ro
+      - super-copy-policy:/stores/super/copy-policy:ro
+      - super-copy-web:/stores/super/copy-web:ro
+      - super-halts:/stores/super/halts:ro
+      #   web
+      - store-web:/stores/web:ro
+      - web-copy:/stores/web/copy:ro
+      - web-copy-super:/stores/web/copy-super:ro
+      - web-halts:/stores/web/halts:ro
     depends_on:
       - mysql
 
@@ -137,7 +203,24 @@ services:
       # The cadence is a ceiling, not a pace. Cycles are not slept between;
       # the next begins when the previous ends. This is the longest a cycle
       # may take and still count as verifying the system.
+      # The gate. Before it starts, and on its own timer for as long as it
+      # runs, the game server reads the observer in this container and the
+      # super observer, and stops working if either is not alive or anything
+      # anywhere has halted. A missing or stale heartbeat counts as halted.
+      - OBSERVER_STORES=/stores
+      - OBSERVER_LOCAL=multi
+      - OBSERVER_LOCAL_MAX_AGE_SECONDS=8
+      - OBSERVER_SUPER_MAX_AGE_SECONDS=20
       - OBSERVER_IDENTITY=multi
+      # How long after an observer starts the work in its container may take
+      # before its absence is a fault. It must exceed a cold start -- the ring
+      # reaching a clear state and the work reaching its listening socket --
+      # or it expires while the barrier is still legitimately waiting, and the
+      # two deadlock: the barrier waits for a clear ring, the ring is not clear
+      # because the work is not running, the work is not running because the
+      # barrier is waiting. It is also the ceiling on how long work that is
+      # never coming goes unreported, so it is no larger than it has to be.
+      - OBSERVER_WORK_START_GRACE_SECONDS=120
       - OBSERVER_CADENCE_SECONDS=6
       - OBSERVER_MIN_CYCLE_MS=300
       - OBSERVER_HEARTBEAT_MAX_AGE_SECONDS=8
@@ -181,6 +264,11 @@ services:
     build:
       context: ../
       dockerfile: docker/policy_server.dockerfile
+    # The policy server exits if the gate refuses at boot, and the barrier in
+    # the startup script then waits here with the observer running rather than
+    # leaving the ring a member short. Without a restart policy a halt that
+    # lifted would leave this container down for good.
+    restart: always
     user: www-data
     security_opt:
       - no-new-privileges:true
@@ -199,7 +287,24 @@ services:
       # The cadence is a ceiling, not a pace. Cycles are not slept between;
       # the next begins when the previous ends. This is the longest a cycle
       # may take and still count as verifying the system.
+      # The gate. Before it starts, and on its own timer for as long as it
+      # runs, the policy server reads the observer in this container and the
+      # super observer, and stops answering if either is not alive or anything
+      # anywhere has halted. A missing or stale heartbeat counts as halted.
+      - OBSERVER_STORES=/stores
+      - OBSERVER_LOCAL=policy
+      - OBSERVER_LOCAL_MAX_AGE_SECONDS=8
+      - OBSERVER_SUPER_MAX_AGE_SECONDS=20
       - OBSERVER_IDENTITY=policy
+      # How long after an observer starts the work in its container may take
+      # before its absence is a fault. It must exceed a cold start -- the ring
+      # reaching a clear state and the work reaching its listening socket --
+      # or it expires while the barrier is still legitimately waiting, and the
+      # two deadlock: the barrier waits for a clear ring, the ring is not clear
+      # because the work is not running, the work is not running because the
+      # barrier is waiting. It is also the ceiling on how long work that is
+      # never coming goes unreported, so it is no larger than it has to be.
+      - OBSERVER_WORK_START_GRACE_SECONDS=120
       - OBSERVER_CADENCE_SECONDS=6
       - OBSERVER_MIN_CYCLE_MS=300
       - OBSERVER_HEARTBEAT_MAX_AGE_SECONDS=8
@@ -247,6 +352,15 @@ services:
       - ALL
     environment:
       - OBSERVER_IDENTITY=super
+      # How long after an observer starts the work in its container may take
+      # before its absence is a fault. It must exceed a cold start -- the ring
+      # reaching a clear state and the work reaching its listening socket --
+      # or it expires while the barrier is still legitimately waiting, and the
+      # two deadlock: the barrier waits for a clear ring, the ring is not clear
+      # because the work is not running, the work is not running because the
+      # barrier is waiting. It is also the ceiling on how long work that is
+      # never coming goes unreported, so it is no larger than it has to be.
+      - OBSERVER_WORK_START_GRACE_SECONDS=120
       - OBSERVER_CADENCE_SECONDS=6
       - OBSERVER_MIN_CYCLE_MS=300
       - OBSERVER_HEARTBEAT_MAX_AGE_SECONDS=8

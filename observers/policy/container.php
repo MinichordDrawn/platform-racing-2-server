@@ -177,7 +177,7 @@ function port_answers(int $port): bool
     return true;
 }
 
-function check_container(Reader $R, array $baseline): void
+function check_container(Reader $R, array $baseline, bool $work_due = true): void
 {
     // --- baselined: a running container does not change -------------------
 
@@ -267,13 +267,32 @@ function check_container(Reader $R, array $baseline): void
     // Empty constants mean there is none: the super observer's container runs
     // the observer and nothing else, so a process check there would assert
     // that the thing doing the asserting exists.
+    //
+    // $work_due is the answer to "should the work have started by now", and it
+    // is not a softening. Without it these two assertions deadlock the
+    // deployment they are meant to protect, because the coupling makes the
+    // work wait for the ring and these make the ring wait for the work:
+    //
+    //   the barrier waits for the ring to be clear
+    //   the ring is not clear, because the work is not running
+    //   the work is not running, because the barrier is waiting
+    //
+    // Each statement true, and nothing starts ever again. It is the same
+    // distinction the trace check had to make between a schedule that has
+    // never run and one that has stopped, and it is resolved the same way:
+    // not yet due is quiet, overdue is a fault. The caller owns the clock --
+    // see run.php -- and everything else in this file is asserted from the
+    // first cycle, because the image is what it is before anything in it runs.
 
-    if (CONTAINER_PROCESS !== '' && !process_running(CONTAINER_PROCESS)) {
-        $R->fail('process-alive', null, CONTAINER_PROCESS . ' is not running');
+    if (CONTAINER_PROCESS !== '') {
+        $R->work_alive = process_running(CONTAINER_PROCESS);
+        if (!$R->work_alive && $work_due) {
+            $R->fail('process-alive', null, CONTAINER_PROCESS . ' is not running');
+        }
     }
 
     foreach (CONTAINER_PORTS as $name => $port) {
-        if (!port_answers($port)) {
+        if (!port_answers($port) && $work_due) {
             $R->fail('port-answers', $name, "nothing is listening on $port");
         }
     }

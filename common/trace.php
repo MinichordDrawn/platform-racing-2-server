@@ -155,6 +155,39 @@ function trace_finish($trace): void
 }
 
 
+// A run that was refused, recorded as a run.
+//
+// The scheduler started, read the observer network, was told to stop, and did
+// no work. Without this the halt that stopped it is also the reason its
+// absence is a fault -- the trace goes stale, staleness is a fault, a fault is
+// a halt, and nothing that happens next can clear it. A halt that outlived a
+// schedule's period made itself permanent, and a ninety-second blip cost the
+// same as a compromise.
+//
+// The fix is not to soften the freshness check or to exempt cron from the
+// coupling. The job really did run; this is what it has to say about it. The
+// record is true, `trace-fresh` is satisfied by a fact rather than a
+// concession, and the traces become a log of every period the deployment was
+// stopped -- which nothing else keeps.
+//
+// It carries no tasks, and the observer measures coverage against the most
+// recent finished run that was not a refusal, so a halt does not read as nine
+// tasks that quietly stopped running.
+function trace_halted(string $schedule, string $reason): bool
+{
+    $trace = trace_begin($schedule);
+    if ($trace === null) {
+        return false;
+    }
+    trace_write($trace, array(
+        'kind'   => 'halted',
+        'reason' => $reason,
+    ));
+    trace_finish($trace);
+    return true;
+}
+
+
 function trace_prune(string $dir, int $highest): void
 {
     $floor = $highest - TRACE_KEEP_RUNS + 1;

@@ -1,5 +1,22 @@
 <?php
 
+// Nothing works while the ring says stop.
+//
+// This is first, before the paths, before the environment, before the boot
+// refusal it stands beside and well before anything connects to a database.
+// The gate needs none of them -- it reads four files out of the store tree and
+// nothing else -- and a process that has been told to stop should stop before
+// it opens a connection to anything.
+//
+// The prepend puts this file in front of every PHP process in these
+// containers, so this one line is the whole of the coupling for two of the
+// four runtimes: every HTTP request and every cron run. The game server and
+// the policy daemon are long-lived and ask on their own timer instead, because
+// what this does on a refusal is exit, and a process that exits here takes the
+// observer sharing its container down with it.
+require_once __DIR__ . '/common/observer_gate.php';
+observer_gate_enforce();
+
 $directory = __DIR__; // this directory
 
 define('ROOT_DIR', $directory); // root

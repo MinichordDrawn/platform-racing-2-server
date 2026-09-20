@@ -42,6 +42,7 @@ function parse_trace(string $bytes): ?array
     $head = null;
     $tasks = array();
     $finished = null;
+    $halted = null;
 
     foreach ($lines as $i => $line) {
         $o = json_decode($line, true);
@@ -64,6 +65,16 @@ function parse_trace(string $bytes): ?array
             $tasks[] = $o;
             continue;
         }
+        // The scheduler ran and the ring told it to stop, so it did no work
+        // and said so. A run like this is fresh and finished -- because it is
+        // -- and carries no tasks, which is why coverage below skips it.
+        if ($o['kind'] === 'halted') {
+            if (!isset($o['reason']) || !is_string($o['reason'])) {
+                return null;
+            }
+            $halted = $o['reason'];
+            continue;
+        }
         if ($o['kind'] === 'finish') {
             if (!isset($o['finished'])) {
                 return null;
@@ -78,7 +89,7 @@ function parse_trace(string $bytes): ?array
         return null;   // a first line missing
     }
 
-    return array('head' => $head, 'tasks' => $tasks, 'finished' => $finished);
+    return array('head' => $head, 'tasks' => $tasks, 'finished' => $finished, 'halted' => $halted);
 }
 
 function trace_runs(string $dir): array
@@ -187,9 +198,17 @@ function check_traces(Reader $R, string $traces_root, array $schedules, int $obs
         // as a silence, which is precisely the failure mode these sequences
         // have: daily.php runs nine tasks with no try around them, so a raise
         // part way through silently skips the rest.
+        //
+        // A refused run is skipped here. It completed no tasks because it did
+        // none, so measuring the declared set against it would report every
+        // halt as nine tasks that had quietly stopped running -- the same trap
+        // this whole arrangement exists to get out of, one check further
+        // along. The most recent finished run that was not refused is the most
+        // recent run that says anything about what the job actually does, so
+        // that is the one coverage is measured against.
         $done = null;
         foreach (array_reverse($parsed, true) as $t) {
-            if ($t['finished'] !== null) {
+            if ($t['finished'] !== null && $t['halted'] === null) {
                 $done = $t;
                 break;
             }

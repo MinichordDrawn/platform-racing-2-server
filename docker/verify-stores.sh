@@ -53,7 +53,14 @@ fail=0
 echo "proving the store write matrix"
 echo
 
-for svc in web multi policy super; do
+# cron is here as a reader. It holds no observer and writes nothing into the
+# tree, but it runs work, and work reads the tree before it works -- so the
+# tree is mounted in it and it is held to the matrix from the other side:
+# every path read-only, no exceptions. It is also the one container that runs
+# as root, which makes the result worth having rather than assuming: a
+# read-only mount is refused by the kernel whoever asks, and this is where that
+# stops being a claim.
+for svc in web multi policy super cron; do
     echo "  $svc"
 
     # One container per service rather than one per path: forty-two containers
@@ -98,9 +105,7 @@ done
 # The while loop above runs in a subshell, so the counters do not survive it.
 # Count from the output instead, which is what a reader of this script would
 # check anyway.
-echo "Re-run and pipe through 'grep -c PASS' and 'grep -c FAIL' for totals,"
-echo "or read the lines above: every path should match its column in SPEC 2."
-echo
-echo "The four store roots have no heartbeat/ yet, which is correct: no"
-echo "observer process exists until step 4, and a root with no heartbeat"
-echo "folder is exactly how a reader concludes 'never ran here'."
+# Counted by matching the indented result lines rather than the words, because
+# a summary that says "grep for FAIL" is a summary that shows up in the grep.
+echo "For totals, pipe through: grep -c '^    PASS' and grep -c '^    FAIL'."
+echo "Or read the lines above: every path should match its column in SPEC 2."
