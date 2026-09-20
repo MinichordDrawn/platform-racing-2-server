@@ -8,6 +8,7 @@ require_once __DIR__ . '/traces.php';
 require_once __DIR__ . '/cycle.php';
 require_once __DIR__ . '/apply.php';
 require_once __DIR__ . '/log.php';
+require_once __DIR__ . '/container.php';
 require_once __DIR__ . '/schedules.php';
 
 // The observer process.
@@ -144,6 +145,13 @@ foreach (array('fault', 'halt') as $f) {
     }
 }
 
+// The container as it is at this moment, which is what it must still be
+// for as long as this observer runs. Taken from the container it watches, so
+// a tampered image baselines itself -- a limit the design records rather than
+// hides, because establishing that an image was the intended image needs
+// provenance from outside the deployment.
+$container_baseline = container_baseline();
+
 log_line($state['log'], 'started', array(
     'observer' => $identity,
     'stores'   => $stores,
@@ -177,6 +185,7 @@ while (true) {
         'booted'          => $state['booted'],
         'cadence_seconds' => $state['params']['cadence_seconds'],
         'deferred'        => $state['deferred'],
+        'container_baseline' => $container_baseline,
         'traces_root'     => $traces,
         'traces'          => schedules_config(),
         // T4 asks the database whether the work the trace claims was done

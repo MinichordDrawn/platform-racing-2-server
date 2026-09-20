@@ -1,5 +1,13 @@
-# Start from an official php image
-FROM php:7.3-cli
+# Start from an official php image.
+#
+# 8.2, matching web and multi. This container was on 7.3, which has had
+# no security patches since December 2021 and whose image is archived --
+# and which the vendored socket daemon no longer suits. socket_create()
+# returns a resource on PHP 7 and a Socket object on PHP 8, and
+# SocketDaemon calls spl_object_id() on it, so on 7.3 every server
+# created warned and the identity it keyed the server by was not one.
+# multi has run the same daemon on 8.2 throughout.
+FROM php:8.2-cli
 
 # Copy in php code
 COPY config.php /pr2/

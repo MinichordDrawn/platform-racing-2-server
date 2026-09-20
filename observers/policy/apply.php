@@ -5,6 +5,7 @@ namespace pr2obs\policy;
 require_once __DIR__ . '/store.php';
 require_once __DIR__ . '/procedures.php';
 require_once __DIR__ . '/log.php';
+require_once __DIR__ . '/container.php';
 
 // Applying a cycle's decision (SPEC.md sections 5, 12 and 13 steps 8-11).
 //
@@ -86,7 +87,7 @@ function heartbeat_bytes(array $fields): string
 // system anyway.
 function local_check_identifiers(): array
 {
-    return array(
+    $base = array(
         // this observer's own store and process
         'own-store-writable',
         'halts-readable',
@@ -97,6 +98,10 @@ function local_check_identifiers(): array
         'trace-coverage',
         'postcondition',
     );
+    // Everything this observer asserts about its own container: the code
+    // manifest, the declared shape, the process, the ports. All of it is
+    // about its own world, so all of it belongs in its fault file.
+    return array_merge($base, container_local_checks());
 }
 
 function is_local_finding(array $finding): bool

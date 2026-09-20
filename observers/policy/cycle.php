@@ -6,6 +6,7 @@ require_once __DIR__ . '/store.php';
 require_once __DIR__ . '/procedures.php';
 require_once __DIR__ . '/traces.php';
 require_once __DIR__ . '/log.php';
+require_once __DIR__ . '/container.php';
 
 // One cycle, in the order SPEC.md section 13 fixes.
 //
@@ -233,10 +234,19 @@ function run_cycle(array $config): array
     // 6. Third-party accounts.
     invariant_1b($R);
 
-    // 7. Traces, and the post-conditions asked independently of them. The
-    //    per-observer local checks -- ports, the database, the container
-    //    shape, the code manifest -- are step 8 of the build order and use
-    //    identifiers this observer's own code chooses.
+    // 7. Local checks, then traces, then the post-conditions asked
+    //    independently of them. The local checks are this observer's own
+    //    column: what its container is, and what it must still be.
+    //
+    //    Run only when a baseline is supplied. The fixture set deliberately
+    //    does not cover local checks -- it says so -- because they are
+    //    per-observer content with identifiers each observer chooses, and a
+    //    fixture is a store on disk with no container around it. run.php
+    //    always supplies one, and a test asserts that it does.
+    if (isset($config['container_baseline'])) {
+        check_container($R, $config['container_baseline']);
+    }
+
     if (!empty($config['traces'])) {
         // How long this deployment has actually been observed: the
         // sequence about to be published, times the cadence. Durable
@@ -279,6 +289,10 @@ function run_cycle(array $config): array
         $checks[] = 'copy-current:' . $c['author'];
     }
     foreach (array('I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7', 'S1', 'S2', 'S3', 'S4', 'S5') as $id) {
+        $checks[] = $id;
+    }
+    // This observer's own column: what its container is and must still be.
+    foreach (container_local_checks() as $id) {
         $checks[] = $id;
     }
     $checks = array_values(array_unique($checks));
