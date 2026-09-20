@@ -163,6 +163,12 @@ class PR2Client extends \chabot\SocketServerClient
 
     public function write($buffer, $length = 4096)
     {
+        // Asked of what the caller handed over, before any of it is assembled,
+        // signed or sent, and for a control connection as well as a player
+        // one. A body that cannot be framed reaches nobody rather than
+        // reaching some of a room.
+        \require_framable_packet($buffer);
+
         if (!$this->process) {
             $body = $this->send_num . '`' . $buffer;
 
@@ -179,7 +185,7 @@ class PR2Client extends \chabot\SocketServerClient
         if ($verbose === true) {
             output('WRITE: ' . $buffer);
         }
-        $buffer .= chr(0x04);
+        $buffer .= \packet_terminator();
         if ($this->transport_mode === self::TRANSPORT_WEBSOCKET) {
             parent::write($this->encodeWebSocketFrame($buffer), $length);
         } else {

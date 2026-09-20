@@ -125,6 +125,37 @@ function valid_course_id($value)
 }
 
 
+// The byte that separates one message from the next on the wire.
+//
+// The framing appends it after a message is assembled, and both ends split the
+// stream on it.
+function packet_terminator()
+{
+    return chr(0x04);
+}
+
+
+// Refuses a packet body that would not survive being framed.
+//
+// A body carrying the terminator splits into two messages at every client that
+// receives it. The signature covers the body as a whole, so neither half
+// carries a signature that covers it, and the second half begins wherever the
+// byte was placed rather than at a field the server wrote.
+//
+// This is asked once, where a message is framed, rather than of each value
+// where it arrives, so it covers every packet the server sends including ones
+// written by code that has never heard of the rule. Because the answer depends
+// on the body alone, a broadcast cannot half happen: a body that fails this
+// fails on the first recipient, before anything has gone out, and fails the
+// same way for every one of them.
+function require_framable_packet($body)
+{
+    if (strpos((string) $body, packet_terminator()) !== false) {
+        throw new Exception('A packet body carried the message terminator.');
+    }
+}
+
+
 // The temp id a packet names, or null when it does not name one.
 //
 // A temp id is handed out by the room, counting up from zero as players join,
