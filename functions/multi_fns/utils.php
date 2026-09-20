@@ -2,6 +2,23 @@
 
 
 // get the next login id
+// Whether a value can be a course id, which is to say a level id.
+//
+// A course id is not only stored. It goes into the name of the startGame
+// packet every player in the race receives and the replay records, it keys the
+// play totals, and it looks up the campaign and prize tables, so a value
+// carrying the field delimiter would let the sender choose the shape of a
+// packet other people's clients parse.
+//
+// Digits only, and above zero. Whether it names a level that exists is a
+// different question and not one this server can answer: players race levels
+// it holds no catalogue of.
+function valid_course_id($value)
+{
+    return ctype_digit((string) $value) && (int) $value > 0;
+}
+
+
 // How far below its own measurement the server will believe a client's race
 // time, in milliseconds.
 //

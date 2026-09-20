@@ -66,7 +66,20 @@ function client_refresh_highlights($socket)
 // join a slot in a course box
 function client_fill_slot($socket, $data)
 {
-    list($course_id, $slot, $page) = explode('`', $data);
+    $parts = explode('`', $data);
+
+    if (count($parts) < 3) {
+        throw new Exception('Malformed fill_slot packet.');
+    }
+
+    list($course_id, $slot, $page) = $parts;
+
+    if (!valid_course_id($course_id)) {
+        throw new Exception('Invalid course id.');
+    }
+
+    $course_id = (int) $course_id;
+
     $player = $socket->getPlayer();
     if (isset($player->right_room)) {
         $player->right_room->fillSlot($player, $course_id, $slot, (int) $page);
