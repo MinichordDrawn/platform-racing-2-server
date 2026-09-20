@@ -84,17 +84,29 @@ function talk_to_server($address, $server_id, $process_function, $receive = true
 
 // send a message to every server
 // DO NOT OUTPUT ANYTHING FROM THIS FUNCTION FOR TESTING
-function poll_servers($servers, $message, $output = true, $server_ids = array())
+// Sends a message to the servers named, or to all of them.
+//
+// Whether to wait for an answer and whether to print what happens are separate
+// questions, and this takes them separately. Passing $output into the
+// parameter that decides whether to read a reply tied them together: asking
+// for silence also gave up the answer, and asking for the answer printed the
+// exchange into whatever the caller was writing. A caller that acts on the
+// answer needs one without the other.
+//
+// $receive left unset follows $output, which is what every caller that does
+// not care has always got.
+function poll_servers($servers, $message, $output = true, $server_ids = array(), $receive = null)
 {
     $results = array();
     $query = array();
+    $receive = $receive === null ? $output : $receive;
 
     foreach ($servers as $server) {
         $id = (int) $server->server_id;
         $query = new stdClass();
 
         if (count($server_ids) == 0 || array_search($id, $server_ids) !== false) {
-            $result = (string) talk_to_server($server->address, $id, $message, $output);
+            $result = (string) talk_to_server($server->address, $id, $message, $receive, $output);
             $result = preg_replace('/[[:cntrl:]]/', '', $result); // remove control characters causing errors
             $query->result = json_decode($result);
             $query->command = $message;

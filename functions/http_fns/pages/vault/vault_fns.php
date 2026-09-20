@@ -86,6 +86,49 @@ function describeVault($pdo, $user, $items_to_get = 'all')
 }
 
 
+// The items whose only delivery is the command sent to the game servers.
+//
+// Every other item in the vault writes what was bought to the database before
+// the command is built, and the command refreshes a session that is already
+// running; an account that never receives it still holds the goods. These four
+// write nothing. What they buy is added to one process's memory and is there
+// only while that process runs, so a command that arrives nowhere is an item
+// that exists nowhere.
+//
+// This list decides which purchases may be refused, and refusing returns the
+// coins. Adding an item here that writes its goods first would return coins for
+// something the account keeps.
+function vault_command_only_slugs()
+{
+    return array('guild_fred', 'guild_ghost', 'guild_artifact', 'happy_hour');
+}
+
+
+// Whether any server answered that it took delivery.
+//
+// Each handler that delivers a purchase answers, so an entry carrying that
+// answer is one server having acted on it. An entry with no answer is a server
+// that could not be reached, did not reply in time, or refused the command;
+// none of those is a delivery, and the three are not distinguishable from here.
+function vault_delivery_reached_a_server($results)
+{
+    if (!is_array($results)) {
+        return false;
+    }
+
+    foreach ($results as $entry) {
+        if (!is_object($entry) || !isset($entry->result) || !is_object($entry->result)) {
+            continue;
+        }
+        if (isset($entry->result->status) && $entry->result->status === 'ok') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
 function vault_purchase_item($pdo, $user, $item, $price, $quantity = 1)
 {
     global $coins_deducted;
@@ -167,9 +210,26 @@ function vault_purchase_item($pdo, $user, $item, $price, $quantity = 1)
         throw new Exception("Item not found: " . strip_tags($slug, '<br>'));
     }
 
-    // send item command to the server
+    // Send the item command to the servers, and wait for an answer rather than
+    // sending it into the dark. The servers are asked without printing the
+    // exchange, because this runs inside a response the buyer receives.
     if (!empty($command)) {
-        @poll_servers(servers_select($pdo), $command, false, isset($target_servers) ? $target_servers : []);
+        $targets = isset($target_servers) ? $target_servers : [];
+        $delivery = poll_servers(servers_select($pdo), $command, false, $targets, true);
+
+        // For an item the command alone delivers, a command nothing took is an
+        // item nothing holds. The order is not completed and the buyer is not
+        // told it was: raising here returns the coins the endpoint deducted.
+        // The order row stays as it was inserted, incomplete, which is the
+        // record that this happened.
+        if (in_array($slug, vault_command_only_slugs(), true)
+            && !vault_delivery_reached_a_server($delivery)
+        ) {
+            throw new Exception(
+                'No game server took delivery of this item, so the purchase did not go through '
+                . 'and your coins have been returned. Please try again in a moment.'
+            );
+        }
     }
 
     // get active purchase (to calculate start time)
