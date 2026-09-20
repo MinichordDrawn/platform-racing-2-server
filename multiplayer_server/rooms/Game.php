@@ -1396,19 +1396,21 @@ class Game extends Room
     }
 
 
-    public function setPos($player, $data)
+    // Both fields are read before anything is sent, and the packet is built
+    // from them, so what went out is what was checked.
+    public function setPos($player, $moved_x, $moved_y)
     {
-        $this->sendToRoom('p'.$player->temp_id.'`'.$data, $player->user_id);
-        list($moved_x, $moved_y) = explode('`', $data);
+        $this->sendToRoom('p'.$player->temp_id.'`'.$moved_x.'`'.$moved_y, $player->user_id);
         $player->pos_x += $moved_x;
         $player->pos_y += $moved_y;
     }
 
 
-    public function setExactPos($player, $data)
+    public function setExactPos($player, $pos_x, $pos_y)
     {
-        $this->sendToRoom('exactPos'.$player->temp_id.'`'.$data, $player->user_id);
-        list($player->pos_x, $player->pos_y) = explode('`', $data);
+        $this->sendToRoom('exactPos'.$player->temp_id.'`'.$pos_x.'`'.$pos_y, $player->user_id);
+        $player->pos_x = $pos_x;
+        $player->pos_y = $pos_y;
     }
 
 
@@ -1584,7 +1586,13 @@ class Game extends Room
 
     public function sendHatToStart($hat_id)
     {
-        if ($this->mode != self::MODE_HAT || $this->loose_hat_array[$hat_id] == null || $hat_id >= $this->next_hat_id) {
+        // A hat that was taken is left as nothing under its key, and one that
+        // was never dropped has no key at all. Both mean there is nothing to
+        // send back.
+        if ($this->mode != self::MODE_HAT
+            || !isset($this->loose_hat_array[$hat_id])
+            || $hat_id >= $this->next_hat_id
+        ) {
             return;
         }
         $this->recordReconnectEvent('hat_return', "maybeReturnHatToStart`$hat_id");
@@ -1808,7 +1816,9 @@ class Game extends Room
 
     public function getHat($player, $hat_id)
     {
-        $hat = @$this->loose_hat_array[$hat_id];
+        // A hat that was never dropped, or has already been taken, leaves
+        // nothing under this key. Asking rather than suppressing the answer.
+        $hat = isset($this->loose_hat_array[$hat_id]) ? $this->loose_hat_array[$hat_id] : null;
         if (isset($hat) && $this->isStillPlaying($player->temp_id)) {
             $this->loose_hat_array[$hat_id] = null;
             $this->recordReconnectEvent('hat_remove', 'removeHat'.$hat_id.'`');

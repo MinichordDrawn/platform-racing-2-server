@@ -29,7 +29,10 @@ function client_get_hat($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
-        $player->game_room->getHat($player, $data);
+        // The room keeps its loose hats in an array keyed by the number it
+        // gave each one, and this is a key into it.
+        $fields = packet_fields($data, array('hat_id' => 'uint'));
+        $player->game_room->getHat($player, $fields['hat_id']);
     }
 }
 
@@ -39,7 +42,10 @@ function client_hat_to_start($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
-        $player->game_room->sendHatToStart($data);
+        // A key into the room's loose hats, and compared against the number it
+        // will hand out next.
+        $fields = packet_fields($data, array('hat_id' => 'uint'));
+        $player->game_room->sendHatToStart($fields['hat_id']);
     }
 }
 
@@ -49,7 +55,9 @@ function client_p($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
-        $player->game_room->setPos($player, $data);
+        // Added to the position the room is tracking, so both are numbers.
+        $fields = packet_fields($data, array('moved_x' => 'num', 'moved_y' => 'num'));
+        $player->game_room->setPos($player, $fields['moved_x'], $fields['moved_y']);
     }
 }
 
@@ -59,7 +67,10 @@ function client_exact_pos($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
-        $player->game_room->setExactPos($player, $data);
+        // Kept as the player's position, which the squash and the sting then
+        // measure their boxes against, so both are numbers.
+        $fields = packet_fields($data, array('pos_x' => 'num', 'pos_y' => 'num'));
+        $player->game_room->setExactPos($player, $fields['pos_x'], $fields['pos_y']);
     }
 }
 
