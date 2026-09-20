@@ -34,10 +34,12 @@ function client_request_login_id($socket)
         $socket->login_id = get_login_id();
         $login_array[$socket->login_id] = $socket;
 
-        // The key for this session goes out first, because everything after
-        // this point has to be signed with it.
-        $socket->session_key = client_session_key();
-        $socket->write('setSessionKey`' . $socket->session_key);
+        // The key goes out before it is held, so that the message carrying it
+        // is not itself signed with it. A client has nothing to check that one
+        // against, and everything after it is signed.
+        $key = client_session_key();
+        $socket->write('setSessionKey`' . $key);
+        $socket->session_key = $key;
 
         $socket->write('setLoginID`'.$socket->login_id);
     }
