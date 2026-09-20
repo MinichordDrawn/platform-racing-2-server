@@ -468,6 +468,14 @@ function db_op($fn, $data = array())
 }
 
 
+// an account's power as the database holds it, never as a caller asserts it
+function verified_power($user_id)
+{
+    $user = db_op('user_select_name_active_power', array((int) $user_id, true));
+    return $user === false ? 0 : (int) $user->power;
+}
+
+
 // close socket to new connections and unbind port
 // DO NOT CALL WITHOUT SHUTDOWN_SERVER OR RESTART_SERVER
 function kill_socket()

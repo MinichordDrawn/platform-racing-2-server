@@ -377,7 +377,6 @@ function user_select_mod($pdo, $user_id, $suppress_error = false)
 
 function user_select_name_active_power($pdo, $user_id, $suppress_error = false)
 {
-    $count = (int) $count;
     $stmt = $pdo->prepare('
           SELECT name, power, trial_mod, ca, time
             FROM users
@@ -392,7 +391,6 @@ function user_select_name_active_power($pdo, $user_id, $suppress_error = false)
     }
 
     $user = $stmt->fetch(PDO::FETCH_OBJ);
-    $user->user_id = $user_id;
 
     if (empty($user)) {
         if ($suppress_error == false) {
@@ -401,6 +399,8 @@ function user_select_name_active_power($pdo, $user_id, $suppress_error = false)
             return false;
         }
     }
+
+    $user->user_id = $user_id;
 
     return $user;
 }
@@ -477,7 +477,6 @@ function user_select_power($pdo, $user_id, $suppress_error = false)
     }
 
     $user = $stmt->fetch(PDO::FETCH_OBJ);
-    $user->user_id = $user_id;
 
     if (empty($user)) {
         if ($suppress_error === false) {
@@ -486,6 +485,8 @@ function user_select_power($pdo, $user_id, $suppress_error = false)
             return false;
         }
     }
+
+    $user->user_id = $user_id;
 
     return get_group_info($user)->str;
 }
