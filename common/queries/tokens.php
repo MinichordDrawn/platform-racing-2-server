@@ -41,10 +41,45 @@ function token_insert($pdo, $user_id, $token)
 }
 
 
+// How long a login token stays good for.
+//
+// A month: the age tokens_delete_old removes rows at, and the longest life the
+// login cookie is ever given. $TOKEN_MAX_AGE_SECONDS overrides it, and a value
+// that is not a positive number is ignored rather than read as no limit.
+function token_max_age()
+{
+    global $TOKEN_MAX_AGE_SECONDS;
+
+    if (isset($TOKEN_MAX_AGE_SECONDS) && (int) $TOKEN_MAX_AGE_SECONDS > 0) {
+        return (int) $TOKEN_MAX_AGE_SECONDS;
+    }
+
+    return 2592000;
+}
+
+
+// True unless the row says, readably, that it was made recently enough. A row
+// whose age cannot be read has not been shown to be good, so it is not.
+function token_is_expired($token)
+{
+    if (!isset($token->time) || trim((string) $token->time) === '') {
+        return true;
+    }
+
+    $made = strtotime((string) $token->time);
+
+    if ($made === false) {
+        return true;
+    }
+
+    return (time() - $made) > token_max_age();
+}
+
+
 function token_select($pdo, $token_id)
 {
     $stmt = $pdo->prepare('
-        SELECT user_id, token
+        SELECT user_id, token, time
           FROM tokens
          WHERE token = :token_id
          LIMIT 1
@@ -60,6 +95,13 @@ function token_select($pdo, $token_id)
 
     if (empty($token)) {
         throw new Exception('Could not find a valid login token. Please log in again.');
+    }
+
+    // Checked here rather than left to the clean-up, so a token stops working
+    // once it is old enough even though its row is still present, and so every
+    // request that authenticates with one is covered by the one test.
+    if (token_is_expired($token)) {
+        throw new Exception('Your login has expired. Please log in again.');
     }
 
     return $token;
