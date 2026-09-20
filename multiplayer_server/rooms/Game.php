@@ -1440,9 +1440,14 @@ class Game extends Room
 
     public function squash($player, $data)
     {
-        list($target_id, $x, $y) = explode('`', $data);
-        $player->pos_x = (int)$x;
-        $player->pos_y = (int)$y;
+        // The attacker's own position used to be taken from this packet and
+        // written before the box below was worked out, so the box was measured
+        // against a number the sender chose in the same breath as the squash.
+        // The position the server has been tracking from their movement
+        // packets is used instead, and the packet's own coordinates are
+        // ignored.
+        $parts = explode('`', $data);
+        $target_id = isset($parts[0]) ? $parts[0] : '';
         $target = $this->idToPlayer($target_id);
         if (isset($target)
             && $player->wearingHat(Hats::JIGG)
@@ -1918,13 +1923,15 @@ class Game extends Room
 
     private function resumePayloadMatchesRace($payload): bool
     {
+        // A payload had to disagree to be refused, so leaving the fields out
+        // passed. They are now required as well as compared.
         if (!($payload instanceof \stdClass)) {
-            return true;
-        }
-        if (isset($payload->course_id) && (string) $payload->course_id !== (string) $this->course_id) {
             return false;
         }
-        if (isset($payload->level_version) && (int) $payload->level_version !== (int) $this->level_version) {
+        if (!isset($payload->course_id) || (string) $payload->course_id !== (string) $this->course_id) {
+            return false;
+        }
+        if (!isset($payload->level_version) || (int) $payload->level_version !== (int) $this->level_version) {
             return false;
         }
         return true;
@@ -1937,12 +1944,15 @@ class Game extends Room
         }
 
         $local = $payload->local_player;
-        if (isset($local->x) && is_numeric($local->x)) {
-            $player->pos_x = (int) $local->x;
-        }
-        if (isset($local->y) && is_numeric($local->y)) {
-            $player->pos_y = (int) $local->y;
-        }
+
+        // The position is deliberately not taken from here. A connection
+        // dropping does not destroy the player, so the server still holds
+        // where they were, and this payload is broadcast to everyone in the
+        // race as soon as it is applied. Taking coordinates from it was a way
+        // to arrive anywhere. The ordinary movement packets resync the
+        // position immediately after the resume, so nothing is lost by
+        // keeping the one the server already had.
+
         if (isset($local->rotation) && is_numeric($local->rotation)) {
             $player->rot = (int) $local->rotation;
         }
