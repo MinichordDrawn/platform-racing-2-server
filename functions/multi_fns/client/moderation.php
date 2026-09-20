@@ -45,13 +45,16 @@ function client_kick($socket, $data)
             $kicked->write('demoteMod`');
         }
 
-        // remove existing kicks, then kick
-        if (\pr2\multi\ServerBans::isBanned($name) === true) {
-            \pr2\multi\ServerBans::remove($name);
-        }
-
         // kick the user
         if (($kicked->group < 2 || $mod->server_owner) && !$kicked->server_owner) {
+            // Remove any existing kick so the new one replaces it. This sits
+            // inside the test on purpose: clearing a kick is an unkick, and
+            // doing it before the test handed one to callers the unkick path
+            // refuses.
+            if (\pr2\multi\ServerBans::isBanned($name) === true) {
+                \pr2\multi\ServerBans::remove($name);
+            }
+
             // add server ban
             \pr2\multi\ServerBans::add($name, $kicked->ip);
 
@@ -158,13 +161,15 @@ function client_warn($socket, $data)
             }
         }
 
-        // remove existing mutes, then mute
-        if (\pr2\multi\Mutes::isMuted($name) === true) {
-            \pr2\multi\Mutes::remove($name);
-        }
-
         // warn the user if they're not a mod
         if (($warned->group < 2 || $mod->server_owner) && !$warned->server_owner) {
+            // Remove any existing mute so the new one replaces it. Inside the
+            // test on purpose: clearing a mute is an unmute, and doing it
+            // before the test handed one to callers the unmute path refuses.
+            if (\pr2\multi\Mutes::isMuted($name) === true) {
+                \pr2\multi\Mutes::remove($name);
+            }
+
             \pr2\multi\Mutes::add($name, $warned->ip, $time);
             if ($warned_online === false) {
                 $mod->write("message`$safe_wname is not currently on this server, but the mute was applied anyway.");

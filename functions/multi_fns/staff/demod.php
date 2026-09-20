@@ -57,11 +57,15 @@ function demote_mod($user_name, $admin, $demoted_player)
             throw new Exception("You lack the power to demote $html_name, as they are an admin.");
         }
 
-        // set power to 1
-        db_op('user_update_power', array($user_id, 1));
-
         // demote trial/perma mod and log it in the action log
         if ((int) $user_row->power >= 2) {
+            // Set power to 1. This sits inside the branch that has established
+            // the target is a moderator: writing it first meant an account
+            // whose stored power was 0 was written up to 1 by a demotion that
+            // then reported they were not a moderator, with the write already
+            // done.
+            db_op('user_update_power', array($user_id, 1));
+
             // log action in action log
             $a_msg = "$admin->name demoted $user_name from $admin->ip on $server_name.";
             db_op('admin_action_insert', array($admin->user_id, $a_msg, 'mod-demote', $admin->ip));
