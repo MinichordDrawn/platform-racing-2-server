@@ -108,6 +108,14 @@ RUN mkdir -p /var/run/apache2 /var/lock/apache2 \
 # heartbeat/ is deliberately not created. A store root with no heartbeat folder
 # is how a reader concludes "never ran here"; pre-creating an empty one would
 # turn that into "ran, and wrote nothing", which is a different claim.
+# /pr2/shared is the application's cache volume -- vault.json,
+# coins_options.json, last-pm.txt and the traces the scheduled work
+# leaves. It is created here and owned by the app user for the same
+# reason the store tree is: a named volume mounted over a path takes
+# that path's ownership from the image, and a root-owned volume is
+# unwritable to a container that no longer runs as root.
+RUN mkdir -p /pr2/shared && chown -R www-data:www-data /pr2/shared
+
 RUN mkdir -p /stores/web/copy /stores/web/halts \
              /stores/multi/copy /stores/multi/halts \
              /stores/policy/copy /stores/policy/halts \

@@ -8,6 +8,7 @@ require_once __DIR__ . '/traces.php';
 require_once __DIR__ . '/cycle.php';
 require_once __DIR__ . '/apply.php';
 require_once __DIR__ . '/log.php';
+require_once __DIR__ . '/schedules.php';
 
 // The observer process.
 //
@@ -54,6 +55,11 @@ function required_string(string $name): string
 
 $identity = required_string('OBSERVER_IDENTITY');
 $stores   = getenv('OBSERVER_STORES') ?: '/stores';
+
+// Traces live in the application's own volume, because the work writes them
+// and an observer never does. A literal path rather than the application's
+// CACHE_DIR constant: this process loads nothing from the application.
+$traces   = getenv('OBSERVER_TRACES') ?: '/pr2/shared/traces';
 
 $params = array(
     // Settled by the design, so it is not configuration.
@@ -171,6 +177,13 @@ while (true) {
         'booted'          => $state['booted'],
         'cadence_seconds' => $state['params']['cadence_seconds'],
         'deferred'        => $state['deferred'],
+        'traces_root'     => $traces,
+        'traces'          => schedules_config(),
+        // T4 asks the database whether the work the trace claims was done
+        // actually is done. That needs a credential and belongs with the
+        // other local checks in step 8; the classification it feeds is
+        // already implemented and exercised by the fixtures.
+        'db'              => array(),
     ));
 
     if ($stopping) {

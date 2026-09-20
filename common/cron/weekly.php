@@ -1,6 +1,7 @@
 <?php
 
 require_once GEN_HTTP_FNS;
+require_once COMMON_DIR . '/trace.php';
 require_once QUERIES_DIR . '/all_optimize.php';
 require_once QUERIES_DIR . '/bans.php';
 require_once QUERIES_DIR . '/best_levels.php';
@@ -16,13 +17,29 @@ output("Weekly CRON starting at $time...");
 // connect
 $pdo = pdo_connect();
 
-level_backups_delete_old($pdo);
-new_levels_delete_old($pdo);
-messages_delete_old($pdo);
-bans_delete_old($pdo);
-users_reset_status($pdo);
-best_levels_reset($pdo);
-all_optimize($pdo, $DB_NAME);
+$trace = trace_begin('weekly');
+trace_task($trace, 'level_backups_delete_old', function () use ($pdo) {
+    return level_backups_delete_old($pdo);
+});
+trace_task($trace, 'new_levels_delete_old', function () use ($pdo) {
+    return new_levels_delete_old($pdo);
+});
+trace_task($trace, 'messages_delete_old', function () use ($pdo) {
+    return messages_delete_old($pdo);
+});
+trace_task($trace, 'bans_delete_old', function () use ($pdo) {
+    return bans_delete_old($pdo);
+});
+trace_task($trace, 'users_reset_status', function () use ($pdo) {
+    return users_reset_status($pdo);
+});
+trace_task($trace, 'best_levels_reset', function () use ($pdo) {
+    return best_levels_reset($pdo);
+});
+trace_task($trace, 'all_optimize', function () use ($pdo, $DB_NAME) {
+    return all_optimize($pdo, $DB_NAME);
+});
+trace_finish($trace);
 
 // tell the command line
 output('Weekly CRON successful.');
