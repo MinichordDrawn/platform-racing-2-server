@@ -192,6 +192,13 @@ function run_cycle(array $config): array
     $R->others = array_values(array_diff($members, array($R->identity)));
 
     $own = own_entries($R);
+
+    // The highest sequence this observer has published, which is both the
+    // basis for the next one and -- times the cadence -- how long this
+    // deployment has been observed. Needed before the trace checks, which ask
+    // whether a schedule has had time to run at all.
+    $highest = highest_own_name_sequence($R);
+
     $own_cadence = $config['cadence_seconds'] ?? 10;
     if (count($own) > 0) {
         $last = $own[array_key_last($own)];
@@ -231,7 +238,11 @@ function run_cycle(array $config): array
     //    shape, the code manifest -- are step 8 of the build order and use
     //    identifiers this observer's own code chooses.
     if (!empty($config['traces'])) {
-        check_traces($R, $config['traces_root'], $config['traces']);
+        // How long this deployment has actually been observed: the
+        // sequence about to be published, times the cadence. Durable
+        // across restarts, which container uptime is not.
+        $observed_seconds = $highest * (int) $R->param('cadence_seconds');
+        check_traces($R, $config['traces_root'], $config['traces'], $observed_seconds);
     }
     if (!empty($config['db'])) {
         check_postconditions($R, $config['db']);
@@ -249,7 +260,6 @@ function run_cycle(array $config): array
     $in_force = halts_in_force($R, $members);
 
     // 8. The heartbeat this cycle would publish.
-    $highest = highest_own_name_sequence($R);
     $previous = null;
     if ($highest > 0) {
         $rel = $R->identity . '/heartbeat/' . heartbeat_name($highest);

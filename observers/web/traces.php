@@ -99,7 +99,7 @@ function trace_runs(string $dir): array
  * $schedules: one entry per schedule present, each with schedule,
  * period_seconds, margin_seconds, deadline_seconds, declared[].
  */
-function check_traces(Reader $R, string $traces_root, array $schedules): void
+function check_traces(Reader $R, string $traces_root, array $schedules, int $observed_seconds): void
 {
     foreach ($schedules as $s) {
         $name = $s['schedule'];
@@ -108,8 +108,28 @@ function check_traces(Reader $R, string $traces_root, array $schedules): void
         // T1 freshness. This is the check that would have caught the daily
         // and weekly jobs never being scheduled at all, which nothing noticed
         // for as long as that was true.
+        //
+        // Never run yet is not the same as stale. A deployment that came up
+        // ten minutes ago has no daily trace and nothing is wrong: the daily
+        // job is not due. Reporting it would halt every fresh deployment for a
+        // day, and every new one for a week waiting on the weekly job -- and
+        // the schedules that cannot simply be run at startup to fix it are
+        // exactly those two, because daily resets players' counters and weekly
+        // optimises every table.
+        //
+        // The clock is this observer's own sequence, not the container's
+        // uptime. Uptime is reset by a restart, so a schedule that is never
+        // scheduled at all would be granted a fresh period of grace every time
+        // the container bounced, and would never be reported -- which is the
+        // one case this check exists for. The sequence is durable across
+        // restarts by design, so it measures how long this deployment has
+        // genuinely been observed and cannot be reset by bouncing anything.
         if (count($runs) === 0) {
-            $R->fail('trace-fresh', $name, 'no run has ever been recorded');
+            $due_after = $s['period_seconds'] + $s['margin_seconds'];
+            if ($observed_seconds < $due_after) {
+                continue;   // not due yet: unknown, and unknown is not a fault
+            }
+            $R->fail('trace-fresh', $name, 'no run has ever been recorded, and one is overdue');
             continue;
         }
 
