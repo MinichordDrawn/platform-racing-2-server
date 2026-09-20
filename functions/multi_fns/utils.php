@@ -355,6 +355,23 @@ function effect_field_kinds()
 }
 
 
+// The kinds of moderator an administrator may promote someone to, and how
+// long each one is told it will reign for.
+//
+// The kind arrived in a packet and went straight into the message the chat
+// room was sent, and the reign was picked by a switch with a case for each of
+// the three. Anything else fell through it, leaving the reign unset, and the
+// message announced a promotion to a kind of moderator that does not exist.
+function moderator_kinds()
+{
+    return array(
+        'temporary' => 'hours',
+        'trial' => 'days',
+        'permanent' => '1,000 years',
+    );
+}
+
+
 // The rooms a client may ask to be put in, by the name it sends.
 //
 // Building a variable name out of the packet instead reaches whichever globals

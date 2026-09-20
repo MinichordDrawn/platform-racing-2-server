@@ -4,8 +4,9 @@
 // get priors for a user
 function client_view_priors($socket, $data)
 {
+    $fields = packet_fields($data, array('name' => 'text'));
     $player = $socket->getPlayer();
-    get_priors($player, $data);
+    get_priors($player, $fields['name']);
 }
 
 
@@ -13,7 +14,11 @@ function client_view_priors($socket, $data)
 function client_kick($socket, $data)
 {
     global $is_ps, $guild_owner, $server_name;
-    $name = $data;
+
+    // The name goes into the kick register, into a message the whole chat
+    // room is sent, and into the moderator action log.
+    $fields = packet_fields($data, array('name' => 'text'));
+    $name = $fields['name'];
 
     // get players
     $kicked = name_to_player($name);
@@ -95,7 +100,9 @@ function client_kick($socket, $data)
 function client_unkick($socket, $data)
 {
     global $is_ps, $server_name;
-    $name = $data;
+
+    $fields = packet_fields($data, array('name' => 'text'));
+    $name = $fields['name'];
 
     // get some info
     $mod = $socket->getPlayer();
@@ -127,14 +134,16 @@ function client_unkick($socket, $data)
 function client_warn($socket, $data)
 {
     global $guild_owner;
-    list($name, $num) = explode("`", $data);
+
+    $fields = packet_fields($data, array('name' => 'text', 'num' => 'uint'));
+    $name = $fields['name'];
+    $num = $fields['num'];
 
     // get player info
     $warned = name_to_player($name);
     $mod = $socket->getPlayer();
 
     // safety first
-    $num = (int) $num;
     $safe_wname = htmlspecialchars($name, ENT_QUOTES);
 
     // warning number and duration
@@ -196,7 +205,8 @@ function client_warn($socket, $data)
 // unmute a player
 function client_unmute($socket, $data)
 {
-    $name = $data;
+    $fields = packet_fields($data, array('name' => 'text'));
+    $name = $fields['name'];
 
     // get some info
     $mod = $socket->getPlayer();
@@ -221,13 +231,18 @@ function client_unmute($socket, $data)
 // ban a player
 function client_ban($socket, $data)
 {
-    $parts = explode("`", $data);
-
-    if (count($parts) < 4) {
-        throw new Exception('Malformed ban packet.');
-    }
-
-    list($banned_name, , , $ban_id) = $parts;
+    // The length, the scope and the reason are declared because the client
+    // sends them, not because they are used: each of those is read from the
+    // ban row below instead. The packet says which ban to announce.
+    $fields = packet_fields($data, array(
+        'banned_name' => 'text',
+        'seconds' => 'uint',
+        'scope' => 'word',
+        'ban_id' => 'uint',
+        'reason' => 'text?',
+    ));
+    $banned_name = $fields['banned_name'];
+    $ban_id = $fields['ban_id'];
 
     // get player info
     $mod = $socket->getPlayer();
@@ -297,7 +312,17 @@ function client_ban($socket, $data)
 // promote a player to a moderator
 function client_promote_to_moderator($socket, $data)
 {
-    list($name, $type) = explode("`", $data);
+    $fields = packet_fields($data, array('name' => 'text', 'type' => 'word'));
+    $name = $fields['name'];
+    $type = $fields['type'];
+
+    // The kind chose the reign that is announced and went into the message
+    // itself. A kind this server does not have is refused rather than named.
+    $kinds = moderator_kinds();
+    if (!isset($kinds[$type])) {
+        throw new Exception('No such kind of moderator.');
+    }
+    $reign_time = $kinds[$type];
 
     // get player info
     $admin = $socket->getPlayer();
@@ -309,18 +334,6 @@ function client_promote_to_moderator($socket, $data)
     // if they're an admin and not a server owner, continue with the promotion (1st line of defense)
     if ($admin->group >= 3 && $admin->server_owner === false) {
         $result = promote_to_moderator($name, $type, $admin, $promoted);
-
-        switch ($type) {
-            case 'temporary':
-                $reign_time = 'hours';
-                break;
-            case 'trial':
-                $reign_time = 'days';
-                break;
-            case 'permanent':
-                $reign_time = '1,000 years';
-                break;
-        }
 
         if (isset($admin->chat_room) && (isset($promoted) || $type !== 'temporary') && $result === true) {
             $admin_url = userify($admin, $admin->name);
@@ -338,8 +351,11 @@ function client_promote_to_moderator($socket, $data)
 
 
 // demote a moderator
-function client_demote_moderator($socket, $name)
+function client_demote_moderator($socket, $data)
 {
+    $fields = packet_fields($data, array('name' => 'text'));
+    $name = $fields['name'];
+
     // get player info
     $admin = $socket->getPlayer();
     $demoted = name_to_player($name);
