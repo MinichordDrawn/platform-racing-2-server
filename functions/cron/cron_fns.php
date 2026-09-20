@@ -291,7 +291,7 @@ function set_campaign($pdo)
     foreach ($servers as $server) {
         output("Updating campaign on $server->server_name (ID: #$server->server_id)...");
         try {
-            $reply = talk_to_server($server->address, $server->port, $server->salt, "set_campaign`$send", true, false);
+            $reply = talk_to_server($server->address, "set_campaign`$send", true, false);
             output("Reply: $reply");
             output("$server->server_name (ID #$server->server_id) campaign update successful.");
         } catch (Exception $e) {
@@ -379,7 +379,7 @@ function servers_restart_all($pdo)
     foreach ($servers as $server) {
         output("Shutting down $server->server_name (ID: #$server->server_id)...");
         try {
-            $reply = talk_to_server($server->address, $server->port, $server->salt, 'shut_down`', true);
+            $reply = talk_to_server($server->address, 'shut_down`', true);
             output("Reply: $reply");
             output("$server->server_name (ID #$server->server_id) shut down successful.");
         } catch (Exception $e) {

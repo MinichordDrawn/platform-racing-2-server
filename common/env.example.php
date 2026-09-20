@@ -14,8 +14,14 @@ $DB_PORT = 3306;
 $S3_SECRET = 'secret';
 $S3_PASS = 'pass';
 
-$PROCESS_PASS = 'abc';
+// the control channel: its own port, never published, and a key that signs
+// every command on it and is never sent
+$PROCESS_PORT = 9161;
+$PROCESS_KEY = 'change me: a long random string, not shared with anything else';
 $PROCESS_IP = '127.0.0.1';
+// leave unset to allow the loopback and private ranges, which is what a
+// container network uses; set it to narrow the control channel further
+$PROCESS_ALLOWED_PREFIXES = array();
 
 $COMM_PASS = 'QHE0NSNwKWZZQVEhU19xMA==';
 

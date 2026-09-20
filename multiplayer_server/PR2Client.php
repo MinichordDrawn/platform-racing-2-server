@@ -44,13 +44,23 @@ class PR2Client extends \chabot\SocketServerClient
         try {
             $array = explode('`', $string);
             if ($this->process) {
-                if (count($array) < 1 || $array[0] === '') {
+                if (count($array) < 4) {
                     throw new \Exception('Malformed process packet.');
                 }
-                $call = $array[0];
-                $function = "process_$call";
-                array_splice($array, 0, 1);
+                $signature = $array[0];
+                $timestamp = $array[1];
+                $nonce = $array[2];
+                $call = $array[3];
+                array_splice($array, 0, 4);
                 $data = join('`', $array);
+
+                if (!\control_verify($signature, $timestamp, $nonce, $call, $data)) {
+                    $this->close();
+                    $this->onDisconnect();
+                    throw new \Exception('Refused a process command that was unsigned, stale or repeated.');
+                }
+
+                $function = "process_$call";
             } else {
                 if (count($array) < 3) {
                     throw new \Exception('Malformed client packet.');

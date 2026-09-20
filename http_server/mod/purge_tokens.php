@@ -61,7 +61,7 @@ try {
                 $send->message = 'Your account\'s stored login tokens have been purged, '.
                     'so you\'ll need to log in again. Contact a PR2 staff member for more information.';
                 $send = json_encode($send);
-                talk_to_server($serv->address, $serv->port, $serv->salt, "disconnect_player`$send", false, false);
+                talk_to_server($serv->address, "disconnect_player`$send", false, false);
             }
         } catch (Exception $e) {
             unset($e);

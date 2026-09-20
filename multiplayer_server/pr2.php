@@ -55,8 +55,10 @@ require_once PR2_ROOT . '/HappyHour.php';
 require_once PR2_ROOT . '/Mutes.php';
 require_once PR2_ROOT . '/LoiterDetector.php';
 require_once PR2_ROOT . '/Player.php';
+require_once COMMON_DIR . '/manage_socket/control_auth.php';
 require_once PR2_ROOT . '/PR2SocketServer.php';
 require_once PR2_ROOT . '/PR2Client.php';
+require_once PR2_ROOT . '/PR2ControlClient.php';
 require_once PR2_ROOT . '/PR2VirtualClient.php';
 require_once PR2_ROOT . '/RaceStats.php';
 require_once PR2_ROOT . '/ServerBans.php';
@@ -119,5 +121,9 @@ begin_loadup($server_id);
 output("Starting PR2 server $server_name (ID: #$server_id) on port $port...");
 $daemon = new \chabot\SocketDaemon();
 $server = $daemon->createServer('\pr2\multi\PR2SocketServer', '\pr2\multi\PR2Client', 0, $port);
+
+// the control channel, on its own port, which is not published to players
+output("Starting the control channel on port $PROCESS_PORT...");
+$control = $daemon->createServer('\pr2\multi\PR2SocketServer', '\pr2\multi\PR2ControlClient', 0, $PROCESS_PORT);
 output("Success! Server started" . ($verbose ? ' (in verbose mode)' : '') . ' on ' . date('r', $uptime));
 $daemon->process();

@@ -22,7 +22,7 @@ try {
 
     // talk to the server
     output("Activating happy hour on $server->server_name ($server->server_id)...");
-    talk_to_server($server->address, $server->port, $server->salt, 'activate_happy_hour`', true);
+    talk_to_server($server->address, 'activate_happy_hour`', true);
 } catch (Exception $e) {
     output($e->getMessage());
 }
