@@ -94,11 +94,8 @@ try {
             throw new Exception('Invalid request type.');
         }
 
-        // make sure the token exists and belongs to this admin
-        $auth = token_select($pdo, $token);
-        if ((int) $auth->user_id !== (int) $admin->user_id) {
-            throw new Exception('Could not validate token.');
-        }
+        // the request has to carry the session token as well as the cookie
+        require_posted_token($pdo, $admin->user_id, $token);
 
         // make some nice variables
         $admin_ip = get_ip();

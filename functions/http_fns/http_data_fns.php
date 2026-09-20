@@ -138,6 +138,28 @@ function require_trusted_ref($action = 'perform this action', $mod = false)
 }
 
 
+// Requires the session token in the request body, belonging to the account
+// acting.
+//
+// A page that authorizes on the cookie alone acts on any request the browser
+// was made to send, from wherever. Another site can cause that but cannot read
+// the cookie, so it cannot put the same value in the body. Required rather
+// than checked when offered: a check that is skipped when the field is absent
+// is no check, since leaving the field out is free.
+function require_posted_token($pdo, $acting_user_id, $token)
+{
+    if (is_empty(trim((string) $token))) {
+        throw new Exception('Could not validate token.');
+    }
+
+    $auth = token_select($pdo, $token);
+
+    if ((int) $auth->user_id !== (int) $acting_user_id) {
+        throw new Exception('Could not validate token.');
+    }
+}
+
+
 // Reads a game server's answer to a session hand-off, and stops when there is
 // no session to speak of.
 //

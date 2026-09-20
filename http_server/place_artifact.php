@@ -14,6 +14,7 @@ $set_time = (int) default_post('set_time', 0);
 $ip = get_ip();
 
 $override_sched = (bool) (int) default_post('override_sched', 0);
+$token = default_post('token', '');
 
 $willbeup = 'will be updated within the next minute';
 
@@ -38,6 +39,9 @@ try {
 
     // check their login
     $mod = check_moderator($pdo);
+
+    // the request has to carry the session token as well as the cookie
+    require_posted_token($pdo, $mod->user_id, $token);
     if ($mod->trial_mod) {
         $msg = 'You lack the power to access this resource. Please ask a moderator to place the artifact.';
         throw new Exception($msg);

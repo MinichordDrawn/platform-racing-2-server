@@ -7,6 +7,7 @@ require_once QUERIES_DIR . '/admin_actions.php';
 require_once QUERIES_DIR . '/servers.php';
 
 $guild_id = (int) default_post('guild_id', 0);
+$token = default_post('token', '');
 $ip = get_ip();
 
 $ret = new stdClass();
@@ -27,6 +28,9 @@ try {
     // check their login and make some rad variables
     $admin = check_moderator($pdo, null, true, 3);
     $admin_id = (int) $admin->user_id;
+
+    // the request has to carry the session token as well as the cookie
+    require_posted_token($pdo, $admin_id, $token);
 
     // more rate limiting
     rate_limit('guild-delete-'.$admin_id, 5, 2);

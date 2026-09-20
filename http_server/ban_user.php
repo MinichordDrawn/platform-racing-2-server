@@ -46,18 +46,10 @@ try {
     // check for permission
     $mod = check_moderator($pdo);
 
-    // The staff pages send the session token back in the form, so a ban asked
-    // for by one of them can be told apart from a request some other site
-    // caused the browser to make. The game client does not send it yet, so a
-    // request without one is still accepted and this is not yet a barrier: it
-    // only becomes one when the client sends it and the else branch below
-    // turns into a refusal.
-    if (!is_empty($token)) {
-        $auth = token_select($pdo, $token);
-        if ((int) $auth->user_id !== (int) $mod->user_id) {
-            throw new Exception('Could not validate token.');
-        }
-    }
+    // The request has to carry the session token as well as the cookie, so a
+    // ban asked for by the game or a staff page can be told apart from one
+    // some other site caused the browser to make.
+    require_posted_token($pdo, $mod->user_id, $token);
 
     // get variables from the mod variable
     $mod_uid = (int) $mod->user_id;

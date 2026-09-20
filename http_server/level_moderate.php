@@ -11,6 +11,7 @@ require_once QUERIES_DIR . '/new_levels.php';
 
 $level_id = (int) default_post('level_id', 0);
 $action = default_post('action', 'unpublish');
+$token = default_post('token', '');
 $ip = get_ip();
 
 $ret = new stdClass();
@@ -40,6 +41,9 @@ try {
 
     // make sure the user is a moderator
     $mod = check_moderator($pdo);
+
+    // the request has to carry the session token as well as the cookie
+    require_posted_token($pdo, $mod->user_id, $token);
 
     // more rate limiting
     rate_limit('moderate-level-'.$mod->user_id, 3, 1);
