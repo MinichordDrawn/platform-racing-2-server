@@ -138,6 +138,37 @@ function require_trusted_ref($action = 'perform this action', $mod = false)
 }
 
 
+// Reads a game server's answer to a session hand-off, and stops when there is
+// no session to speak of.
+//
+// talk_to_server returns false when it could not connect or nothing came back
+// in time, and a game server answers with success false when it turned the
+// session down, which it does once it is at its player cap. Carrying on past
+// either of those hands a player a token for a session that does not exist:
+// the game server has no record of them, and their status, last address and
+// recent login are never written.
+//
+// Returns the decoded answer when the session was taken.
+function require_game_session($reply)
+{
+    if ($reply === false || $reply === null || trim((string) $reply) === '') {
+        throw new Exception('Could not reach the game server. Please try again in a moment.');
+    }
+
+    $answer = json_decode(preg_replace('/[[:cntrl:]]/', '', (string) $reply));
+
+    if (!is_object($answer) || !isset($answer->success)) {
+        throw new Exception('The game server gave an answer that could not be read. Please try again in a moment.');
+    }
+
+    if (!$answer->success) {
+        throw new Exception('The game server did not accept this session. It may be full, so please try another.');
+    }
+
+    return $answer;
+}
+
+
 // send an email to a user
 function send_email($to, $subject, $body)
 {

@@ -308,13 +308,14 @@ try {
     $str = "register_login`" . json_encode($send);
     $result = talk_to_server("multi"/*$server_address*/, $server->server_id, $str, true, false);
 
-    // update user information if the login was successful
-    $result = json_decode(preg_replace('/[[:cntrl:]]/', '', $result));
-    if ($result->success) {
-        user_update_status($pdo, $user_id, $send->status, $server_id); // status
-        user_update_ip($pdo, $user_id, $ip); // last IP address
-        recent_logins_insert($pdo, $user_id, $ip, $country_code); // record recent login
-    }
+    // No session, no login. Stops here when the game server could not be
+    // reached, answered with something unreadable, or turned the session down.
+    require_game_session($result);
+
+    // update user information now the session exists
+    user_update_status($pdo, $user_id, $send->status, $server_id); // status
+    user_update_ip($pdo, $user_id, $ip); // last IP address
+    recent_logins_insert($pdo, $user_id, $ip, $country_code); // record recent login
 
     // tell the world
     $ret->success = true;
