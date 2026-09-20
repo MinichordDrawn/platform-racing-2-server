@@ -125,6 +125,47 @@ function valid_course_id($value)
 }
 
 
+// The temp id a packet names, or null when it does not name one.
+//
+// A temp id is handed out by the room, counting up from zero as players join,
+// so a valid one is digits and nothing else. This reads the first field, which
+// is where every packet that names a player puts it.
+//
+// Reading $data[0] instead takes the first character rather than the first
+// field. A race holds more than ten players, so under that reading every id
+// above nine names a different player: 12 names 1.
+function packet_temp_id($data)
+{
+    $parts = explode('`', (string) $data);
+    $value = isset($parts[0]) ? $parts[0] : '';
+
+    if (!ctype_digit($value)) {
+        return null;
+    }
+
+    return (int) $value;
+}
+
+
+// The rooms a client may ask to be put in, by the name it sends.
+//
+// Building a variable name out of the packet instead reaches whichever globals
+// happen to end in the same way. Which those are is a fact about the rest of
+// the program rather than a rule about the packet, so it moves whenever
+// something else is named, and nothing announces it. The five here are the
+// list rooms the server makes at startup.
+function right_room_names()
+{
+    return array(
+        'campaign' => 'campaign_room',
+        'best' => 'best_room',
+        'best_week' => 'best_week_room',
+        'newest' => 'newest_room',
+        'search' => 'search_room',
+    );
+}
+
+
 // How far below its own measurement the server will believe a client's race
 // time, in milliseconds.
 //

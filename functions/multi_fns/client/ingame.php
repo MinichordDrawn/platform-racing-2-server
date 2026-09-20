@@ -69,7 +69,7 @@ function client_squash($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
-        $player->game_room->squash($player, $data);
+        $player->game_room->squash($player, packet_temp_id($data));
     }
 }
 
@@ -79,7 +79,7 @@ function client_sting($socket, $data)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
-        $player->game_room->sting($player, $data[0]);
+        $player->game_room->sting($player, packet_temp_id($data));
     }
 }
 

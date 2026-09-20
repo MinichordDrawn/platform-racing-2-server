@@ -11,12 +11,29 @@ function client_set_right_room($socket, $data)
     if ($data !== 'none' && isset($player->game_room)) {
         $player->game_room->removePlayer($player);
     }
-    if ($data !== 'none' && strpos($data, '`') === false) {
-        global ${$data.'_room'};
-        if (${$data.'_room'} != null) {
-            ${$data.'_room'}->addPlayer($player);
-        }
+
+    // Leaving, which is not a room.
+    if ($data === 'none') {
+        return;
     }
+
+    // The name the packet sends picks a room out of a table this handler
+    // holds. It is not turned into the name of a variable, because what that
+    // reaches is decided by whatever else happens to be in scope.
+    $rooms = right_room_names();
+    if (!isset($rooms[$data])) {
+        throw new Exception('No such room.');
+    }
+
+    $global = $rooms[$data];
+    $room = isset($GLOBALS[$global]) ? $GLOBALS[$global] : null;
+
+    // The table says which global, and this says what has to be under it.
+    if (!$room instanceof \pr2\multi\LevelListRoom) {
+        throw new Exception('That room is not ready.');
+    }
+
+    $room->addPlayer($player);
 }
 
 

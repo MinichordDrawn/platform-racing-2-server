@@ -1438,7 +1438,7 @@ class Game extends Room
     }
 
 
-    public function squash($player, $data)
+    public function squash($player, $target_id)
     {
         // The attacker's own position used to be taken from this packet and
         // written before the box below was worked out, so the box was measured
@@ -1446,8 +1446,10 @@ class Game extends Room
         // The position the server has been tracking from their movement
         // packets is used instead, and the packet's own coordinates are
         // ignored.
-        $parts = explode('`', $data);
-        $target_id = isset($parts[0]) ? $parts[0] : '';
+        if ($target_id === null) {
+            return; // the packet named nobody
+        }
+
         $target = $this->idToPlayer($target_id);
         if (isset($target)
             && $player->wearingHat(Hats::JIGG)
@@ -1463,7 +1465,10 @@ class Game extends Room
 
     public function sting($from, $target_id)
     {
-        if ($target_id == $from->temp_id) {
+        if ($target_id === null) {
+            return; // the packet named nobody
+        }
+        if ($target_id === (int) $from->temp_id) {
             return; // this should never happen
         }
         $target = $this->idToPlayer($target_id);
@@ -1499,8 +1504,16 @@ class Game extends Room
 
     private function idToPlayer($temp_id)
     {
+        // Compared as integers on both sides. A loose comparison lets several
+        // different spellings of a number match the same player, and lets a
+        // value that is not a number at all match one of them.
+        if (!is_int($temp_id) && !ctype_digit((string) $temp_id)) {
+            return null;
+        }
+        $temp_id = (int) $temp_id;
+
         foreach ($this->player_array as $player) {
-            if ($player->temp_id == $temp_id) {
+            if ((int) $player->temp_id === $temp_id) {
                 return $player;
             }
         }
