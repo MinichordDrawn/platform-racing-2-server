@@ -189,14 +189,25 @@ function run_cycle(array $config): array
         $config['memory'] ?? array()
     );
 
-    // 2. Enumerate. Membership is the set of store roots, never a list the
-    // observer carries: that is what lets a deployed member appear with no
-    // announcement, and what makes a stranger impossible, since a stranger has
-    // nowhere to write.
-    // The ring is what the deployment declares it to be, not what happens to
-    // be on disk. See RING_MEMBERS. A store root that is missing is a member
-    // whose store is missing, which the reads below report; a directory that
-    // is not a member is not a member whatever it is named.
+    // 2. The ring is what the deployment declares it to be, not what happens
+    // to be on disk. See RING_MEMBERS. A store root that is missing is a
+    // member whose store is missing, which the reads below report; a directory
+    // that is not a member is not a member whatever it is named.
+    //
+    // This replaced enumerating the store roots, and the argument for
+    // enumerating was not empty: it let a member appear with no announcement,
+    // which is automatic integration, and it made a stranger impossible on the
+    // grounds that a stranger has nowhere to write. The second half was wrong
+    // -- the store root is writable by the user the work runs as, so a
+    // container could add a position to its own ring, and remove one -- and
+    // removing one was silent, which is a member leaving with nobody's
+    // assertion failing.
+    //
+    // The first half was right and is the cost. Membership is now stated in
+    // this list, in the gate, in the compose file and in the images, and a
+    // member cannot join by being deployed. That is a real loss of automatic
+    // integration, taken deliberately, because a set that cannot be edited
+    // from inside a container is worth more here than one that updates itself.
     $members = identity_order(RING_MEMBERS);
     $R->others = array_values(array_diff($members, array($R->identity)));
     $R->unchanged = $config['unchanged'] ?? array();

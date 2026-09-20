@@ -80,9 +80,19 @@ function container_local_checks(): array
 {
     // Only what this container can fail. The others are absent because there
     // is nothing here for them to be about, not because they were forgotten.
+    //
+    // `extensions-declared` was absent on those grounds and stopped belonging
+    // there the moment this image declared an extension. A check an observer
+    // does not list is not read as a statement about its own world: it halts
+    // the ring without writing a fault file, and it is missing from the
+    // heartbeat's account of what ran. The halt is the half that matters and
+    // happened either way, so what was lost was the record rather than the
+    // stop -- but a list that is right only until something is added to the
+    // image is a list that has to be checked rather than reasoned about.
     return array(
         'code-unchanged',
         'php-version',
+        'extensions-declared',
         'extensions-unchanged',
     );
 }
