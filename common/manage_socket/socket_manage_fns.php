@@ -4,10 +4,10 @@ require_once __DIR__ . '/control_auth.php';
 
 
 // tests server connectivity
-function connect_to_server($address)
+function connect_to_server($address, $server_id)
 {
     output("Attempting to connect to server at $address...");
-    $result = talk_to_server($address, 'check_status`', true);
+    $result = talk_to_server($address, $server_id, 'check_status`', true);
     return $result;
 }
 
@@ -17,8 +17,9 @@ function connect_to_server($address)
 // The channel listens on its own port, which is not published, and never on
 // the port players connect to. The key signs the command and never travels;
 // the time and the value used once make a copied command useless outside a
-// short window and useless twice inside it.
-function talk_to_server($address, $process_function, $receive = true, $output = true)
+// short window and useless twice inside it. The server the command is for is
+// signed with it, so a command made for one server is refused by every other.
+function talk_to_server($address, $server_id, $process_function, $receive = true, $output = true)
 {
     global $PROCESS_PORT;
 
@@ -33,10 +34,12 @@ function talk_to_server($address, $process_function, $receive = true, $output = 
 
     $timestamp = time();
     $nonce = control_nonce();
-    $signature = control_sign($timestamp, $nonce, $command, $data);
+    $server_id = (int) $server_id;
+    $signature = control_sign($timestamp, $nonce, $server_id, $command, $data);
 
     $end = chr(0x04);
-    $send_str = $signature . '`' . $timestamp . '`' . $nonce . '`' . $command . '`' . $data . $end;
+    $send_str = $signature . '`' . $timestamp . '`' . $nonce . '`' . $server_id
+        . '`' . $command . '`' . $data . $end;
 
     // connect to the server
     if ($output === true) {
@@ -91,7 +94,7 @@ function poll_servers($servers, $message, $output = true, $server_ids = array())
         $query = new stdClass();
 
         if (count($server_ids) == 0 || array_search($id, $server_ids) !== false) {
-            $result = (string) talk_to_server($server->address, $message, $output);
+            $result = (string) talk_to_server($server->address, $id, $message, $output);
             $result = preg_replace('/[[:cntrl:]]/', '', $result); // remove control characters causing errors
             $query->result = json_decode($result);
             $query->command = $message;

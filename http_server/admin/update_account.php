@@ -174,7 +174,7 @@ try {
             $data->user_id = (int) $user->user_id;
             $data->message = 'An admin updated your user information. Please log in again.';
             $data = json_encode($data);
-            talk_to_server($server->address, "disconnect_player`$data", false, false);
+            talk_to_server($server->address, $server->server_id, "disconnect_player`$data", false, false);
         }
 
         // adjust guild member count

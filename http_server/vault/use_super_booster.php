@@ -37,7 +37,7 @@ try {
     rate_limit('sb-'.$user_id, 86400, 1, 'The Super Booster can only be used once per day.');
 
     // send a message to the player's server giving them a super boost
-    talk_to_server($server->address, "unlock_super_booster`$user_id", false);
+    talk_to_server($server->address, $server->server_id, "unlock_super_booster`$user_id", false);
 
     // reply
     $ret->success = true;

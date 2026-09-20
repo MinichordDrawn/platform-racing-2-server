@@ -45,7 +45,7 @@ try {
         $data->user_id = (int) $user->user_id;
         $data->part = $part;
         $data = json_encode($data);
-        $reply = talk_to_server($server->address, 'gain_part`' . $data, true, false);
+        $reply = talk_to_server($server->address, $server->server_id, 'gain_part`' . $data, true, false);
         if ($reply !== false) {
             if (strpos($reply, 'Error: ') === 0) {
                 throw new Exception(substr($reply, 7));

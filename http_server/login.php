@@ -306,7 +306,7 @@ try {
     $send->epic_upgrades = $epic_upgrades;
 
     $str = "register_login`" . json_encode($send);
-    $result = talk_to_server("multi"/*$server_address*/, $str, true, false);
+    $result = talk_to_server("multi"/*$server_address*/, $server->server_id, $str, true, false);
 
     // update user information if the login was successful
     $result = json_decode(preg_replace('/[[:cntrl:]]/', '', $result));

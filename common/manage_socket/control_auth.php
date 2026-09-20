@@ -9,31 +9,53 @@
 define('CONTROL_WINDOW_SECONDS', 30);
 
 
-// the string both sides sign, so neither can disagree about what was signed
-function control_payload($timestamp, $nonce, $command, $data)
+// The string both sides sign, so neither can disagree about what was signed.
+//
+// The server the command is for is part of it. Every server verifies with the
+// same key, so without this a command made for one server would be valid at
+// all of them, and the record of values already used could not help: the
+// server holding that record is not the server the copy was presented to.
+function control_payload($timestamp, $nonce, $server_id, $command, $data)
 {
-    return (int) $timestamp . '`' . $nonce . '`' . $command . '`' . $data;
+    return (int) $timestamp . '`' . $nonce . '`' . (int) $server_id . '`' . $command . '`' . $data;
 }
 
 
-function control_sign($timestamp, $nonce, $command, $data)
+function control_sign($timestamp, $nonce, $server_id, $command, $data)
 {
     global $PROCESS_KEY;
-    return hash_hmac('sha256', control_payload($timestamp, $nonce, $command, $data), (string) $PROCESS_KEY);
+    return hash_hmac(
+        'sha256',
+        control_payload($timestamp, $nonce, $server_id, $command, $data),
+        (string) $PROCESS_KEY
+    );
 }
 
 
-// true only for a command this server signed, made recently, and not seen before
-function control_verify($signature, $timestamp, $nonce, $command, $data)
+// true only for a command addressed to this server, signed with the key, made
+// recently, and not seen before
+function control_verify($signature, $timestamp, $nonce, $target_id, $command, $data)
 {
+    global $server_id;
+
     static $seen = array();
+
+    // A process that does not know which server it is cannot tell whether a
+    // command was meant for it, so it refuses rather than assuming.
+    if (!isset($server_id)) {
+        return false;
+    }
+
+    if ((int) $target_id !== (int) $server_id) {
+        return false;
+    }
 
     $age = time() - (int) $timestamp;
     if ($age > CONTROL_WINDOW_SECONDS || $age < -CONTROL_WINDOW_SECONDS) {
         return false;
     }
 
-    $expected = control_sign($timestamp, $nonce, $command, $data);
+    $expected = control_sign($timestamp, $nonce, $target_id, $command, $data);
     if (!hash_equals($expected, (string) $signature)) {
         return false;
     }

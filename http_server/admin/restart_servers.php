@@ -53,7 +53,7 @@ try {
             // restart, yo
             try {
                 echo "Shutting down $server->server_name ($server->server_id)...<br>";
-                $reply = talk_to_server($server->address, 'shut_down`', true);
+                $reply = talk_to_server($server->address, $server->server_id, 'shut_down`', true);
                 echo "Server Reply: $reply";
             } catch (Exception $e) {
                 echo $e->getMessage();
@@ -74,7 +74,7 @@ try {
             foreach ($servers as $server) {
                 echo "Shutting down $server->server_name ($server->server_id)...<br>";
                 try {
-                    $reply = talk_to_server($server->address, 'shut_down`', true);
+                    $reply = talk_to_server($server->address, $server->server_id, 'shut_down`', true);
                     echo "Server Reply: $reply";
                 } catch (Exception $e) {
                     echo $e->getMessage();
