@@ -31,6 +31,9 @@ $PROCESS_IP = '127.0.0.1';
 // leave unset to allow the loopback and private ranges, which is what a
 // container network uses; set it to narrow the control channel further
 $PROCESS_ALLOWED_PREFIXES = array();
+// how many control connections a game server holds at once; leave unset to
+// derive it from the number of players that server can hold
+$PROCESS_MAX_CONNECTIONS = 0;
 
 $COMM_PASS = 'QHE0NSNwKWZZQVEhU19xMA==';
 

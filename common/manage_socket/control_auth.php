@@ -105,6 +105,33 @@ function control_address_allowed($address)
 }
 
 
+// How many control connections a game server will hold at once.
+//
+// These all arrive from the web tier and the poller, which share one address,
+// so a per-address cap is the wrong shape: the right bound is on the channel
+// as a whole. The number follows from the server's own capacity. One hand-off
+// is made per login, a server holds at most $max_players, so more concurrent
+// hand-offs than that serve nobody; the cap is set at twice that, which leaves
+// a whole server's worth of room for reconnections after a restart while the
+// poller and staff actions are also in flight.
+//
+// $PROCESS_MAX_CONNECTIONS overrides it. A value that is not a positive number
+// is ignored rather than taken as no limit.
+function control_connection_limit()
+{
+    global $max_players, $PROCESS_MAX_CONNECTIONS;
+
+    if (isset($PROCESS_MAX_CONNECTIONS) && (int) $PROCESS_MAX_CONNECTIONS > 0) {
+        return (int) $PROCESS_MAX_CONNECTIONS;
+    }
+
+    // a process that never set a capacity still gets a bound
+    $capacity = isset($max_players) && (int) $max_players > 0 ? (int) $max_players : 100;
+
+    return $capacity * 2;
+}
+
+
 // a value used once, for the sending side
 function control_nonce()
 {
