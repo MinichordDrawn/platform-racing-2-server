@@ -33,6 +33,12 @@ function client_request_login_id($socket)
         global $login_array;
         $socket->login_id = get_login_id();
         $login_array[$socket->login_id] = $socket;
+
+        // The key for this session goes out first, because everything after
+        // this point has to be signed with it.
+        $socket->session_key = client_session_key();
+        $socket->write('setSessionKey`' . $socket->session_key);
+
         $socket->write('setLoginID`'.$socket->login_id);
     }
 }

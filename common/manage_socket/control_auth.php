@@ -17,7 +17,15 @@ define('CONTROL_WINDOW_SECONDS', 30);
 // server holding that record is not the server the copy was presented to.
 function control_payload($timestamp, $nonce, $server_id, $command, $data)
 {
-    return (int) $timestamp . '`' . $nonce . '`' . (int) $server_id . '`' . $command . '`' . $data;
+    // The command and the data are given their lengths first, so that moving a
+    // character out of one and into the other cannot produce the same string to
+    // sign. A separator alone would not do that, because the separator can
+    // appear inside the data.
+    return (int) $timestamp
+        . '`' . $nonce
+        . '`' . (int) $server_id
+        . '`' . strlen((string) $command) . ':' . $command
+        . '`' . strlen((string) $data) . ':' . $data;
 }
 
 

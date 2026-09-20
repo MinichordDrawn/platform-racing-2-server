@@ -20,6 +20,9 @@ class PR2Client extends \chabot\SocketServerClient
     public $last_user_action = 0;
     public $last_action = 0;
     public $login_id;
+    // Set when this connection asks for its login id, and used to check the
+    // signature on everything it sends afterwards.
+    public $session_key = null;
     public $process = false;
     public $ip;
     public $id;
@@ -74,15 +77,24 @@ class PR2Client extends \chabot\SocketServerClient
                 array_splice($array, 0, 3);
                 $data = join('`', $array);
 
-                $str_to_hash = SALT . $send_num . '`' . $call . '`' . $data;
-                $local_hash = md5($str_to_hash);
-                $sub_hash = substr($local_hash, 0, 3);
+                // Until this connection has a key there is nothing to check a
+                // signature against, so the only thing it may ask for is the
+                // key itself.
+                if ($this->session_key === null) {
+                    if ($call !== 'request_login_id') {
+                        $this->close();
+                        $this->onDisconnect();
+                        throw new \Exception('A command arrived before this connection had a session key.');
+                    }
+                } else {
+                    $expected = \client_packet_signature($this->session_key, $send_num, $call, $data);
 
-                // if ($sub_hash !== $hash) {
-                //     $this->close();
-                //     $this->onDisconnect();
-                //     throw new \Exception("The received hash doesn't match. Recieved: $hash | Local: $sub_hash");
-                // }
+                    if (!hash_equals($expected, (string) $hash)) {
+                        $this->close();
+                        $this->onDisconnect();
+                        throw new \Exception('A command arrived that this session did not sign.');
+                    }
+                }
 
                 if ($send_num > 2 && $send_num !== $this->rec_num + 1 && $send_num !== 13) {
                     $this->close();
@@ -140,10 +152,16 @@ class PR2Client extends \chabot\SocketServerClient
     public function write($buffer, $length = 4096)
     {
         if (!$this->process) {
-            $buffer = $this->send_num . '`' . $buffer;
-            $str_to_hash = SALT . $buffer;
-            $hash_bit = substr(md5($str_to_hash), 0, 3);
-            $buffer = $hash_bit . '`' . $buffer;
+            $body = $this->send_num . '`' . $buffer;
+
+            // Signed with this session's key. The message carrying the key
+            // cannot be signed with it, so that one goes out unsigned and is
+            // the only one that does.
+            $signature = $this->session_key === null
+                ? ''
+                : \server_packet_signature($this->session_key, $this->send_num, $body);
+
+            $buffer = $signature . '`' . $body;
         }
         global $verbose;
         if ($verbose === true) {

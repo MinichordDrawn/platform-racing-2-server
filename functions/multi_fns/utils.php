@@ -2,6 +2,48 @@
 
 
 // get the next login id
+// A key for one connection, used to sign the packets it sends.
+//
+// Drawn per session rather than shared, so that holding one connection's key
+// says nothing about any other. Whoever runs the client holds its own key, so
+// this cannot stop a player forging their own packets; checking the values
+// themselves, server side, is what does that.
+function client_session_key()
+{
+    return bin2hex(random_bytes(32));
+}
+
+
+// The signature a client packet carries.
+//
+// Covers the sequence number, the command and the data. Each field is given
+// its length first, so that moving a character out of one field and into the
+// next cannot produce the same string to sign. A separator alone would not do
+// that, because the separator can appear inside the data.
+function client_packet_signature($session_key, $send_num, $call, $data)
+{
+    $payload = (int) $send_num
+        . '`' . strlen((string) $call) . ':' . $call
+        . '`' . strlen((string) $data) . ':' . $data;
+
+    return hash_hmac('sha256', $payload, (string) $session_key);
+}
+
+
+// The signature the server puts on what it sends back.
+//
+// The same shape in the other direction, so a client can tell a message from
+// its own server from anything else that reaches the connection. It was a
+// three character digest of a constant compiled into the client, which told a
+// client nothing it did not already hold.
+function server_packet_signature($session_key, $send_num, $body)
+{
+    $payload = (int) $send_num . '`' . strlen((string) $body) . ':' . $body;
+
+    return hash_hmac('sha256', $payload, (string) $session_key);
+}
+
+
 // An id for a connection that is waiting to be logged in.
 //
 // This is the only thing tying a socket connection to the login that arrives

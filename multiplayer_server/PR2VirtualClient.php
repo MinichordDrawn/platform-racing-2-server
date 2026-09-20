@@ -13,6 +13,7 @@ class PR2VirtualClient
     public $last_user_action = 0;
     public $last_action = 0;
     public $process = false;
+    public $session_key = null;
     public $disconnected = false;
 
     private $send_num = 0;
