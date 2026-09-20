@@ -54,6 +54,17 @@ function required_string(string $name): string
 }
 
 $identity = required_string('OBSERVER_IDENTITY');
+
+// The shortest a cycle may take. Not a pace to the cadence -- a floor.
+//
+// Without one, each observer runs as fast as its own workload allows, and
+// those differ by fifty times: the observer with no application in its
+// container turns nearly three hundred cycles a second while the one hashing
+// a code tree turns six. A reader's recorded hash then falls out of a fast
+// subject's four-entry window between two of its own reads, and every member
+// reports I1 against every other. The floor equalises them, because every
+// cycle is shorter than it.
+$min_cycle_ms = required_int('OBSERVER_MIN_CYCLE_MS', 0, 60000);
 $stores   = getenv('OBSERVER_STORES') ?: '/stores';
 
 
@@ -66,13 +77,23 @@ $params = array(
     'max_heartbeat_bytes'         => required_int('OBSERVER_MAX_HEARTBEAT_BYTES', 512, 1048576),
     'max_fault_bytes'             => required_int('OBSERVER_MAX_FAULT_BYTES', 512, 1048576),
     'max_halt_bytes'              => required_int('OBSERVER_MAX_HALT_BYTES', 512, 1048576),
+    // The absolute backstop on a member's liveness: the one threshold read
+    // against a wall clock rather than against a hash. Generous next to the
+    // cadence ceiling, because that is what makes clock skew irrelevant.
+    'heartbeat_max_age_seconds'    => required_int('OBSERVER_HEARTBEAT_MAX_AGE_SECONDS', 1, 3600),
     'now'                         => gmdate('Y-m-d\TH:i:s\Z'),
 );
 
-// SPEC 8: the staleness tolerance is counted in the reader's own cycles from
-// its own on-disk window, so it can never exceed the window.
-if ($params['stale_slack_cycles'] > $params['window']) {
-    fwrite(STDERR, "observer: OBSERVER_STALE_SLACK_CYCLES cannot exceed the window\n");
+// The backstop has to be longer than the cadence this observer declares, or it
+// cannot tell a member that is keeping its cadence from one that has stopped:
+// every heartbeat would be older than the limit a moment after it was written,
+// and every member would read as stale for ever.
+//
+// Checked once, here, where both values are set -- not re-derived by every
+// reader against every subject. A misconfiguration should stop the thing that
+// is misconfigured rather than be discovered separately by everybody else.
+if ($params['heartbeat_max_age_seconds'] <= $params['cadence_seconds']) {
+    fwrite(STDERR, "observer: OBSERVER_HEARTBEAT_MAX_AGE_SECONDS must exceed OBSERVER_CADENCE_SECONDS\n");
     exit(2);
 }
 
@@ -108,7 +129,8 @@ $state = array(
     'failing_set' => null,
     'booted'      => true,
     'started'     => gmdate('Y-m-d\TH:i:s\Z'),
-    'deferred'    => array(),
+    'unchanged'   => array(),
+    'last_observed' => array(),
     // Resolved to a real stream here rather than left as null meaning "the
     // default". null is the one value `??` treats as absent, so `$x ?? false`
     // silently turns "use the default" into "do not log" -- which it did, in
@@ -171,6 +193,11 @@ while (true) {
     $began = hrtime(true);
     $state['params']['now'] = gmdate('Y-m-d\TH:i:s\Z');
 
+    // SPEC 13.3, done here because it is a write. Asking before the cycle
+    // rather than discovering it at publication is what lets this cycle act
+    // on the answer instead of the next one inheriting it.
+    $writable = own_store_writable_at($stores, $identity);
+
     $plan = run_cycle(array(
         'stores'          => $state['stores'],
         'identity'        => $state['identity'],
@@ -179,7 +206,8 @@ while (true) {
         'memory'          => $state['memory'],
         'booted'          => $state['booted'],
         'cadence_seconds' => $state['params']['cadence_seconds'],
-        'deferred'        => $state['deferred'],
+        'unchanged'       => $state['unchanged'] ?? array(),
+        'own_store_writable' => $writable,
         'container_baseline' => $container_baseline,
         // No scheduled work runs on this host, so there are no traces to
         // read. The trace validations are present in this observer and stay
@@ -208,25 +236,36 @@ while (true) {
         exit(0);
     }
 
-    // SPEC 13.12: an observer times its own cycle against the cadence it
-    // declares. Overrunning is reported in the *next* cycle, since this one
-    // has already published. It does not check less in order to keep up: an
-    // observer that cannot keep its cadence is not verifying the system, and a
-    // system that is not being verified should not be serving.
+    // The next cycle begins as soon as this one ends, unless it finished
+    // faster than the floor, in which case it waits for it.
+    //
+    // The cadence remains a ceiling rather than a pace: the longest a cycle
+    // may take and still count as verifying the system. The cycle checks that
+    // itself, before it publishes, so an overrun is acted on by the cycle
+    // that overran rather than inherited by the next one.
     $elapsed = (hrtime(true) - $began) / 1e9;
-    if ($elapsed > $state['params']['cadence_seconds']) {
-        $state['deferred'][] = array(
-            'check'   => 'cycle-within-cadence',
-            'subject' => null,
-            'detail'  => sprintf('the cycle took %.2fs against a cadence of %ds',
-                                 $elapsed, $state['params']['cadence_seconds']),
-        );
+
+    $floor = $min_cycle_ms / 1000;
+    if ($elapsed < $floor) {
+        usleep((int) (($floor - $elapsed) * 1000000));
+        // Measured again, because what the next block needs is the wall-clock
+        // interval between one observation and the next, not the work.
+        $elapsed = (hrtime(true) - $began) / 1e9;
     }
 
-    // No catch-up burst: an overrunning cycle is followed immediately by the
-    // next one.
-    $remaining = $state['params']['cadence_seconds'] - $elapsed;
-    if ($remaining > 0) {
-        usleep((int) ($remaining * 1000000));
+    // How long each subject has gone unchanged, by this observer's own
+    // monotonic clock. With cycles unpaced, a count of them is no longer a
+    // unit of time -- this reader can turn many in the interval a peer takes
+    // to write once -- so staleness is measured in seconds and accumulated
+    // here.
+    $before = $state['last_observed'] ?? array();
+    $after  = $plan['publish']['observed'];
+    $unchanged = array();
+    foreach ($after as $who => $hash) {
+        $unchanged[$who] = ($hash !== null && isset($before[$who]) && $before[$who] === $hash)
+            ? ($state['unchanged'][$who] ?? 0.0) + $elapsed
+            : 0.0;
     }
+    $state['unchanged']    = $unchanged;
+    $state['last_observed'] = $after;
 }

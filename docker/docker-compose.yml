@@ -19,10 +19,15 @@ services:
       - PR2HUB_PROXY_URL=http://pr2hub-proxy:8080
       # The observer. Everything SPEC.md lists under "Values to be set" is
       # required here rather than defaulted in code, so that a deployment
-      # states them where they can be reviewed. These are provisional and
-      # want measuring against real cycle times before they are trusted.
+      # states them where they can be reviewed.
+      #
+      # The cadence is a ceiling, not a pace. Cycles are not slept between;
+      # the next begins when the previous ends. This is the longest a cycle
+      # may take and still count as verifying the system.
       - OBSERVER_IDENTITY=web
-      - OBSERVER_CADENCE_SECONDS=10
+      - OBSERVER_CADENCE_SECONDS=6
+      - OBSERVER_MIN_CYCLE_MS=300
+      - OBSERVER_HEARTBEAT_MAX_AGE_SECONDS=8
       - OBSERVER_STALE_SLACK_CYCLES=1
       - OBSERVER_STAGING_STALE_AFTER_SECONDS=60
       - OBSERVER_MAX_HEARTBEAT_BYTES=8192
@@ -44,10 +49,12 @@ services:
       #   multi
       - store-multi:/stores/multi:ro
       - multi-copy:/stores/multi/copy
+      - multi-copy-super:/stores/multi/copy-super:ro
       - multi-halts:/stores/multi/halts
       #   policy
       - store-policy:/stores/policy:ro
       - policy-copy:/stores/policy/copy:ro
+      - policy-copy-super:/stores/policy/copy-super:ro
       - policy-halts:/stores/policy/halts
       #   super
       - store-super:/stores/super:ro
@@ -58,6 +65,7 @@ services:
       #   web
       - store-web:/stores/web
       - web-copy:/stores/web/copy:ro
+      - web-copy-super:/stores/web/copy-super:ro
       - web-halts:/stores/web/halts:ro
     depends_on:
       - mysql
@@ -72,7 +80,7 @@ services:
       context: ../
       dockerfile: docker/http_server.dockerfile
     user: "0:0"
-    command: ["cron", "-f"]
+    command: ["/cron_startup.sh"]
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -124,10 +132,15 @@ services:
     environment:
       # The observer. Everything SPEC.md lists under "Values to be set" is
       # required here rather than defaulted in code, so a deployment states
-      # them where they can be reviewed. Provisional, and wanting measuring
-      # against real cycle times.
+      # them where they can be reviewed.
+      #
+      # The cadence is a ceiling, not a pace. Cycles are not slept between;
+      # the next begins when the previous ends. This is the longest a cycle
+      # may take and still count as verifying the system.
       - OBSERVER_IDENTITY=multi
-      - OBSERVER_CADENCE_SECONDS=10
+      - OBSERVER_CADENCE_SECONDS=6
+      - OBSERVER_MIN_CYCLE_MS=300
+      - OBSERVER_HEARTBEAT_MAX_AGE_SECONDS=8
       - OBSERVER_STALE_SLACK_CYCLES=1
       - OBSERVER_STAGING_STALE_AFTER_SECONDS=60
       - OBSERVER_MAX_HEARTBEAT_BYTES=8192
@@ -145,10 +158,12 @@ services:
       #   multi
       - store-multi:/stores/multi
       - multi-copy:/stores/multi/copy:ro
+      - multi-copy-super:/stores/multi/copy-super:ro
       - multi-halts:/stores/multi/halts:ro
       #   policy
       - store-policy:/stores/policy:ro
       - policy-copy:/stores/policy/copy
+      - policy-copy-super:/stores/policy/copy-super:ro
       - policy-halts:/stores/policy/halts
       #   super
       - store-super:/stores/super:ro
@@ -159,6 +174,7 @@ services:
       #   web
       - store-web:/stores/web:ro
       - web-copy:/stores/web/copy:ro
+      - web-copy-super:/stores/web/copy-super:ro
       - web-halts:/stores/web/halts
 
   policy:
@@ -178,10 +194,15 @@ services:
     environment:
       # The observer. Everything SPEC.md lists under "Values to be set" is
       # required here rather than defaulted in code, so a deployment states
-      # them where they can be reviewed. Provisional, and wanting measuring
-      # against real cycle times.
+      # them where they can be reviewed.
+      #
+      # The cadence is a ceiling, not a pace. Cycles are not slept between;
+      # the next begins when the previous ends. This is the longest a cycle
+      # may take and still count as verifying the system.
       - OBSERVER_IDENTITY=policy
-      - OBSERVER_CADENCE_SECONDS=10
+      - OBSERVER_CADENCE_SECONDS=6
+      - OBSERVER_MIN_CYCLE_MS=300
+      - OBSERVER_HEARTBEAT_MAX_AGE_SECONDS=8
       - OBSERVER_STALE_SLACK_CYCLES=1
       - OBSERVER_STAGING_STALE_AFTER_SECONDS=60
       - OBSERVER_MAX_HEARTBEAT_BYTES=8192
@@ -193,10 +214,12 @@ services:
       #   multi
       - store-multi:/stores/multi:ro
       - multi-copy:/stores/multi/copy:ro
+      - multi-copy-super:/stores/multi/copy-super:ro
       - multi-halts:/stores/multi/halts
       #   policy
       - store-policy:/stores/policy
       - policy-copy:/stores/policy/copy:ro
+      - policy-copy-super:/stores/policy/copy-super:ro
       - policy-halts:/stores/policy/halts:ro
       #   super
       - store-super:/stores/super:ro
@@ -207,7 +230,56 @@ services:
       #   web
       - store-web:/stores/web:ro
       - web-copy:/stores/web/copy
+      - web-copy-super:/stores/web/copy-super:ro
       - web-halts:/stores/web/halts
+  # The fourth member: in the ring, not above it. It gives no instructions and
+  # nothing asks it for permission. What it has that the others do not is a
+  # complete view -- it compares every copy against the store it came from,
+  # which is the check no member can perform for itself.
+  super:
+    build:
+      context: ../
+      dockerfile: docker/super_observer.dockerfile
+    user: www-data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      - OBSERVER_IDENTITY=super
+      - OBSERVER_CADENCE_SECONDS=6
+      - OBSERVER_MIN_CYCLE_MS=300
+      - OBSERVER_HEARTBEAT_MAX_AGE_SECONDS=8
+      - OBSERVER_STALE_SLACK_CYCLES=1
+      - OBSERVER_STAGING_STALE_AFTER_SECONDS=60
+      - OBSERVER_MAX_HEARTBEAT_BYTES=8192
+      - OBSERVER_MAX_FAULT_BYTES=8192
+      - OBSERVER_MAX_HALT_BYTES=8192
+    volumes:
+      # The store tree (SPEC 2). Every path has one writer and the
+      # read-only flags are what make that true rather than agreed.
+      #   multi
+      - store-multi:/stores/multi:ro
+      - multi-copy:/stores/multi/copy:ro
+      - multi-copy-super:/stores/multi/copy-super
+      - multi-halts:/stores/multi/halts
+      #   policy
+      - store-policy:/stores/policy:ro
+      - policy-copy:/stores/policy/copy:ro
+      - policy-copy-super:/stores/policy/copy-super
+      - policy-halts:/stores/policy/halts
+      #   super
+      - store-super:/stores/super
+      - super-copy-multi:/stores/super/copy-multi:ro
+      - super-copy-policy:/stores/super/copy-policy:ro
+      - super-copy-web:/stores/super/copy-web:ro
+      - super-halts:/stores/super/halts:ro
+      #   web
+      - store-web:/stores/web:ro
+      - web-copy:/stores/web/copy:ro
+      - web-copy-super:/stores/web/copy-super
+      - web-halts:/stores/web/halts
+
   mysql:
     image: mysql
     security_opt:
@@ -255,9 +327,11 @@ services:
 volumes:
   store-multi:
   multi-copy:
+  multi-copy-super:
   multi-halts:
   store-policy:
   policy-copy:
+  policy-copy-super:
   policy-halts:
   store-super:
   super-copy-multi:
@@ -266,6 +340,7 @@ volumes:
   super-halts:
   store-web:
   web-copy:
+  web-copy-super:
   web-halts:
   mysql-data:
   shared-data:

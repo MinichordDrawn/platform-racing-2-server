@@ -42,6 +42,9 @@ MATRIX="
 /stores/super/copy-web|web
 /stores/super/copy-multi|multi
 /stores/super/copy-policy|policy
+/stores/web/copy-super|super
+/stores/multi/copy-super|super
+/stores/policy/copy-super|super
 "
 
 pass=0
@@ -50,15 +53,15 @@ fail=0
 echo "proving the store write matrix"
 echo
 
-for svc in web multi policy; do
+for svc in web multi policy super; do
     echo "  $svc"
 
     # One container per service rather than one per path: forty-two containers
     # would take minutes and prove nothing extra.
     probe=$($C run --rm --no-deps --entrypoint sh "$svc" -c '
-        for p in /stores/web /stores/web/copy /stores/web/halts \
-                 /stores/multi /stores/multi/copy /stores/multi/halts \
-                 /stores/policy /stores/policy/copy /stores/policy/halts \
+        for p in /stores/web /stores/web/copy /stores/web/copy-super /stores/web/halts \
+                 /stores/multi /stores/multi/copy /stores/multi/copy-super /stores/multi/halts \
+                 /stores/policy /stores/policy/copy /stores/policy/copy-super /stores/policy/halts \
                  /stores/super /stores/super/halts \
                  /stores/super/copy-web /stores/super/copy-multi /stores/super/copy-policy; do
             if [ ! -d "$p" ]; then

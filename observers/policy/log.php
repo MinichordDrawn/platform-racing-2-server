@@ -110,7 +110,10 @@ function log_after_halt($sink, string $identity, int $sequence, array $result): 
     $base = array('observer' => $identity, 'sequence' => $sequence);
 
     if (count($result['failing']) > 0) {
-        log_line($sink, 'failing', $base + array('set' => $result['failing']));
+        // The whole finding, detail included. A log that records that
+        // something fired without recording what it saw cannot answer the
+        // only question worth asking afterwards.
+        log_line($sink, 'failing', $base + array('set' => $result['findings'] ?? $result['failing']));
     }
 
     if (!empty($result['halt']['writes'])) {

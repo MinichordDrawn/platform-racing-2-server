@@ -45,9 +45,9 @@ ENV POLICY_PORT=8843
 # unwritable to a container that no longer runs as root.
 RUN mkdir -p /pr2/shared && chown -R www-data:www-data /pr2/shared
 
-RUN mkdir -p /stores/web/copy /stores/web/halts \
-             /stores/multi/copy /stores/multi/halts \
-             /stores/policy/copy /stores/policy/halts \
+RUN mkdir -p /stores/web/copy /stores/web/copy-super /stores/web/halts \
+             /stores/multi/copy /stores/multi/copy-super /stores/multi/halts \
+             /stores/policy/copy /stores/policy/copy-super /stores/policy/halts \
              /stores/super/halts \
              /stores/super/copy-web /stores/super/copy-multi /stores/super/copy-policy \
     && chown -R www-data:www-data /stores

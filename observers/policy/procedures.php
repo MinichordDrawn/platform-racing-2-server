@@ -22,6 +22,10 @@ class Reader
     public $memory;      // relative path => hash of what this reader wrote
     public $now;           // unix seconds
     public $others = array();
+    // Per subject, how long its heartbeat has been unchanged, in seconds, as
+    // of the start of this cycle. Measured by this reader on its own
+    // monotonic clock and held in process.
+    public $unchanged = array();
 
     public $findings = array();   // ordered: ['check','subject','detail']
     public $members = array();    // identity => ['verdict','cur','hash','entries','folder_present']
@@ -52,8 +56,16 @@ class Reader
         $this->findings[] = array('check' => $check, 'subject' => $subject, 'detail' => $detail);
     }
 
+    // Strict on purpose. An unknown parameter used to become null and then
+    // zero, which silently turned off whatever it governed -- the trace
+    // due-check, in the case that found this. A missing parameter is a
+    // programming error, and an observer running on a value nobody set is an
+    // observer that cannot be trusted about what it checked.
     public function param(string $name)
     {
+        if (!array_key_exists($name, $this->params)) {
+            throw new \RuntimeException("observer: no parameter '$name'");
+        }
         return $this->params[$name];
     }
 
@@ -81,7 +93,10 @@ function store_root_permitted(string $identity): array
         $common['copy-multi'] = 'dir';
         $common['copy-policy'] = 'dir';
     } else {
+        // copy/ holds the cycle peer's heartbeat; copy-super/ holds the super
+        // observer's. Two writers, two directories, one writer each.
         $common['copy'] = 'dir';
+        $common['copy-super'] = 'dir';
     }
     return $common;
 }
@@ -145,7 +160,11 @@ function check_store_root(Reader $R, string $identity): void
 // stop the chain rules over the entries that did parse.
 function procedure_c(Reader $R, string $folder, string $author): array
 {
-    $out = array('entries' => array(), 'listed' => false);
+    // `names` is every heartbeat-named entry the listing showed; `entries`
+    // is the subset that could be read and parsed. They differ when an entry
+    // is pruned between the listing and the read, which is ordinary at any
+    // cycle rate and common at a fast one.
+    $out = array('entries' => array(), 'names' => array(), 'listed' => false);
 
     $names = list_dir($folder);
     if ($names === null) {
@@ -167,6 +186,7 @@ function procedure_c(Reader $R, string $folder, string $author): array
         }
         if (is_heartbeat_name($name)) {
             $heartbeats[] = $name;
+            $out['names'][] = sequence_of_name($name);
             continue;
         }
         if (is_heartbeat_staging_name($name)) {
@@ -221,6 +241,15 @@ function procedure_c(Reader $R, string $folder, string $author): array
         $seq = sequence_of_name($name);
         $bytes = read_bytes($path);
         if ($bytes === null) {
+            // Gone between the listing and the read. The owner prunes its own
+            // folder every cycle, so this is the ordinary race and not a
+            // malformed file -- and calling it S5 would be a compromise fired
+            // by a benign event, which is the one thing the compromise set
+            // must never do. A file that is still there and still cannot be
+            // read is a different matter.
+            if (!is_file($path)) {
+                continue;
+            }
             $R->fail('S5', $R->rel($path), 'unreadable');
             continue;
         }
@@ -309,17 +338,64 @@ function procedure_c(Reader $R, string $folder, string $author): array
 }
 
 
+// SPEC 13.3: the own store is proved writable by creating and removing a
+// staging file in the observer's own heartbeat folder. The publication a few
+// steps later would also prove it, but only after the fact -- and a finding
+// the cycle can act on is worth more than one the next cycle inherits.
+function own_store_writable_at(string $stores, string $identity): bool
+{
+    $dir = join_path(rtrim(str_replace(chr(92), '/', $stores), '/'), $identity, 'heartbeat');
+    if (!is_dir($dir)) {
+        return false;
+    }
+    // The probe writes a *staging* file, which is what SPEC 13.3 says and is
+    // not a detail. A heartbeat folder permits exactly two kinds of name, and
+    // a probe called anything else is an unexpected name -- which every peer
+    // reads as S1, a compromise, fired by the observer's own housekeeping.
+    //
+    // The name used is the one the next publication will stage under, so what
+    // is proved is precisely the write that is about to happen. A fresh
+    // staging file is nothing at all to a reader; one left behind by a crash
+    // is a stale staging file, which is a fault, which is the designed signal
+    // for a writer that died mid-publish.
+    $next = 1;
+    foreach ((list_dir($dir) ?? array()) as $name) {
+        if (is_heartbeat_name($name)) {
+            $next = max($next, sequence_of_name($name) + 1);
+        }
+    }
+    $probe = join_path($dir, heartbeat_name($next) . '.tmp');
+    $fh = @fopen($probe, 'wb');
+    if ($fh === false) {
+        return false;
+    }
+    @fclose($fh);
+    return @unlink($probe);
+}
+
 // --- Procedure V: the verdict for subject A (SPEC 8.1) --------------------
 
-function stale_after(Reader $R, int $subject_cadence, int $own_cadence): int
+// How long a subject may go unchanged before it is stale, in seconds.
+//
+// This was a count of reader cycles taken from the reader's own on-disk
+// window. That worked while cycles were paced to the cadence; once a cycle
+// starts the moment the previous one ends, a reader's cycles stop being a
+// unit of time at all -- it can turn sixty of them in the interval a peer
+// takes to write once, and a four-entry window cannot express six seconds.
+//
+// So it is a duration, measured by this reader on its own monotonic clock
+// against the cadence the subject declares. That is still not two hosts'
+// clocks compared, which is the thing the design forbids and the reason no
+// verdict reads a timestamp: it is one reader timing its own observations.
+function stale_after_seconds(Reader $R, int $subject_cadence): float
 {
-    $n = (int) ceil($subject_cadence / max(1, $own_cadence)) + $R->param('stale_slack_cycles');
-    return max(1, min($n, $R->param('window')));
+    return $subject_cadence * (1 + $R->param('stale_slack_cycles'));
 }
 
 function procedure_v(Reader $R, string $A, array $own_entries, int $own_cadence): array
 {
-    $result = array('verdict' => 'unknown', 'observed' => null, 'cur' => null, 'entries' => array());
+    $result = array('verdict' => 'unknown', 'observed' => null, 'cur' => null,
+                    'entries' => array(), 'names' => array());
 
     // V1 readable.
     if (list_dir($R->storePath($A)) === null) {
@@ -329,8 +405,9 @@ function procedure_v(Reader $R, string $A, array $own_entries, int $own_cadence)
 
     $folder = $R->storePath($A, 'heartbeat');
     $folder_exists = is_dir($folder);
-    $c = $folder_exists ? procedure_c($R, $folder, $A) : array('entries' => array(), 'listed' => false);
+    $c = $folder_exists ? procedure_c($R, $folder, $A) : array('entries' => array(), 'names' => array(), 'listed' => false);
     $result['entries'] = $c['entries'];
+    $result['names'] = $c['names'];
 
     // V2 present.
     if (!$folder_exists || count($c['entries']) === 0) {
@@ -395,6 +472,31 @@ function procedure_v(Reader $R, string $A, array $own_entries, int $own_cadence)
         return $result;
     }
 
+    // V4b: the absolute backstop.
+    //
+    // The one place a verdict reads a timestamp. Everything else measures
+    // liveness by whether a hash changed, precisely so that no verdict depends
+    // on two machines agreeing about the time -- but that mechanism has a gap,
+    // and this closes it.
+    //
+    // The gap: a reader that has just started holds no basis, so it cannot
+    // tell a live member from one that died an hour ago. Every hash looks new
+    // to it. A timestamp needs no basis.
+    //
+    // It is safe to read one here because it is a backstop with a generous
+    // threshold, not the primary test. Against a six-second ceiling, eight
+    // seconds leaves a second or two of clock skew making no difference. A
+    // heartbeat older than that is not skew, it is a member that has stopped.
+    $written = parse_timestamp($cur['parsed']['timestamp']);
+    if ($written === null || ($R->now - $written) > $R->param('heartbeat_max_age_seconds')) {
+        $result['verdict'] = 'stale';
+        $R->fail('member-fresh', $A, sprintf(
+            'its heartbeat is %s seconds old, against a maximum of %d',
+            $written === null ? 'an unreadable number of' : (string) ($R->now - $written),
+            $R->param('heartbeat_max_age_seconds')));
+        return $result;
+    }
+
     $H = $R->basis === null ? null : ($R->basis['observed'][$A] ?? null);
 
     // V5 no basis.
@@ -404,23 +506,15 @@ function procedure_v(Reader $R, string $A, array $own_entries, int $own_cadence)
     }
 
     if ($H === $cur['hash']) {
-        // V6 unchanged: count consecutive reader cycles, from its own window
-        // downwards, that recorded this same hash.
-        $k = 0;
-        $own = $own_entries;
-        krsort($own, SORT_NUMERIC);
-        foreach ($own as $e) {
-            $seen = $e['parsed']['observed'][$A] ?? null;
-            if ($seen === $cur['hash']) {
-                $k++;
-            } else {
-                break;
-            }
-        }
-        $limit = stale_after($R, $cur['parsed']['cadence_seconds'], $own_cadence);
-        if ($k >= $limit) {
+        // V6 unchanged: how long has it been unchanged, by this reader's own
+        // clock, against the cadence this subject declares it will keep?
+        $for = $R->unchanged[$A] ?? 0.0;
+        $limit = stale_after_seconds($R, $cur['parsed']['cadence_seconds']);
+        if ($for >= $limit) {
             $result['verdict'] = 'stale';
-            $R->fail('member-fresh', $A, "unchanged for $k reader cycles");
+            $R->fail('member-fresh', $A,
+                sprintf('unchanged for %.1fs against a declared cadence of %ds',
+                        $for, $cur['parsed']['cadence_seconds']));
             return $result;
         }
     } else {
@@ -435,7 +529,13 @@ function procedure_v(Reader $R, string $A, array $own_entries, int $own_cadence)
             }
         }
         if (!$found) {
-            $R->fail('I1', $A, 'the recorded hash is in no entry of the subject chain');
+            $seqs = array_keys($c['entries']);
+            $R->fail('I1', $A, sprintf(
+                'V7: recorded %s for %s; its chain holds %s..%s (%d entries), current %s',
+                substr($H, 0, 12), $A,
+                count($seqs) ? $seqs[0] : '-',
+                count($seqs) ? $seqs[count($seqs)-1] : '-',
+                count($seqs), substr($cur['hash'], 0, 12)));
             $result['verdict'] = 'unknown';
             return $result;
         }
@@ -496,7 +596,7 @@ function procedure_k(Reader $R, string $dir, string $author): void
     $copy_folder = join_path($dir, 'heartbeat');
     $copy = is_dir($copy_folder)
         ? procedure_c($R, $copy_folder, $author)
-        : array('entries' => array(), 'listed' => false);
+        : array('entries' => array(), 'names' => array(), 'listed' => false);
 
     // K4 original.
     $orig_folder = $R->storePath($author, 'heartbeat');
@@ -504,15 +604,23 @@ function procedure_k(Reader $R, string $dir, string $author): void
         return;
     }
     $orig = $R->members[$author]['entries'] ?? null;
+    $orig_names = $R->members[$author]['names'] ?? null;
     if ($orig === null) {
-        $orig = procedure_c($R, $orig_folder, $author)['entries'];
+        $read = procedure_c($R, $orig_folder, $author);
+        $orig = $read['entries'];
+        $orig_names = $read['names'];
     }
     if (count($orig) === 0) {
         return;   // the author's own verdict has already recorded the problem
     }
-    $orig_seqs = array_keys($orig);
-    $min = $orig_seqs[0];
-    $max = $orig_seqs[count($orig_seqs) - 1];
+    // Bounded by what the listing showed, not by what could be read. An entry
+    // pruned between the two would otherwise lower the ceiling and make a
+    // perfectly good copy look like a record the author never published --
+    // a compromise fired by the author doing its own housekeeping.
+    $orig_names = $orig_names === null || count($orig_names) === 0 ? array_keys($orig) : $orig_names;
+    sort($orig_names, SORT_NUMERIC);
+    $min = $orig_names[0];
+    $max = $orig_names[count($orig_names) - 1];
 
     // K5 each copy entry.
     $any_in_window = false;
@@ -675,7 +783,12 @@ function invariant_1b(Reader $R): void
                 }
             }
             if (!$found) {
-                $R->fail('I1', $B, "records a state of $C that $C never published");
+                $seqs = array_keys($subject['entries']);
+                $R->fail('I1', $B, sprintf(
+                    'I1(b): %s (seq %s) records %s for %s; %s chain holds %s..%s',
+                    $B, $m['cur']['parsed']['sequence'], substr($claimed, 0, 12), $C, $C,
+                    count($seqs) ? $seqs[0] : '-',
+                    count($seqs) ? $seqs[count($seqs)-1] : '-'));
             }
         }
     }

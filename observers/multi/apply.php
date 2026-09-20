@@ -146,6 +146,26 @@ function halt_bytes(string $observer, array $halt, int $sequence, string $now): 
 // its own directory in the super store.
 function copy_targets(string $stores, string $identity): array
 {
+    // The super observer writes into all three peers, and they into it.
+    //
+    // The design said it wrote copies nowhere. That leaves the one member
+    // whose store is never corroborated -- and it is the worst candidate for
+    // that, being a hard dependency whose unreachability halts everything and
+    // the only member that decides the all-clear.
+    //
+    // It also leaves a real gap rather than an untidiness. A forged chain is
+    // caught either by I1, which needs the reader to hold a basis, or by a
+    // copy disagreeing with its original. A reader that has just restarted has
+    // no basis by design, and for the other three the copy check covers that
+    // window. For super nothing did.
+    if ($identity === 'super') {
+        $out = array();
+        foreach (array('web', 'multi', 'policy') as $peer) {
+            $out[] = join_path($stores, $peer, 'copy-super');
+        }
+        return $out;
+    }
+
     $out = array();
     foreach (array('web', 'multi', 'policy') as $store) {
         if (copy_author_of($store) === $identity) {
@@ -160,8 +180,7 @@ function copy_targets(string $stores, string $identity): array
  * Write what the cycle decided, then log.
  *
  * $state is the daemon's own record and is updated in place: memory, basis,
- * the since-times of failing assertions, and any finding deferred to the next
- * cycle.
+ * and the failing set it last published.
  */
 function apply_cycle(array &$state, array $plan): void
 {
@@ -169,8 +188,6 @@ function apply_cycle(array &$state, array $plan): void
     $identity = $state['identity'];
     $window   = $state['params']['window'];
     $now      = gmdate('Y-m-d\TH:i:s\Z');
-
-    $deferred = array();
 
     // --- 8. the heartbeat -------------------------------------------------
     //
@@ -202,16 +219,27 @@ function apply_cycle(array &$state, array $plan): void
 
     $hash = publish_atomic($hb_path, $bytes);
     if ($hash === null) {
-        $deferred[] = array('check' => 'own-store-writable', 'subject' => null,
-                            'detail' => 'the heartbeat could not be published');
+        // Nothing can be recorded about this. A store that cannot take a
+        // heartbeat cannot take a fault or a halt either, so there is nowhere
+        // to write it down and nothing to defer it to. The design already says
+        // what happens: this observer goes silent, and its peers see the
+        // heartbeat stop advancing. Silence is the signal.
+        //
+        // The log is the one place that still works, because it is not the
+        // store.
+        log_line($state['log'] ?? false, 'publish-failed', array(
+            'observer' => $identity, 'sequence' => $seq, 'path' => $hb_rel,
+        ));
     } else {
         $state['memory'][$hb_rel] = $hash;
         if ($hash !== hash_bytes($bytes)) {
             // SPEC 5: use the re-read hash regardless, because that is what
             // every other reader will compute -- but say that the write did
-            // not land as intended.
-            $deferred[] = array('check' => 'own-store-writable', 'subject' => null,
-                                'detail' => 'the published bytes differ from those written');
+            // not land as intended. The next cycle's writability probe is what
+            // turns this into a finding; this is the record of the moment.
+            log_line($state['log'] ?? false, 'publish-differs', array(
+                'observer' => $identity, 'sequence' => $seq, 'path' => $hb_rel,
+            ));
         }
     }
 
@@ -339,9 +367,8 @@ function apply_cycle(array &$state, array $plan): void
     }
 
     // --- what the next cycle starts from ----------------------------------
-    $state['basis']    = array('observed' => $plan['publish']['observed']);
-    $state['booted']   = false;
-    $state['deferred'] = $deferred;
+    $state['basis']  = array('observed' => $plan['publish']['observed']);
+    $state['booted'] = false;
 
     // --- the log, and it is last on purpose -------------------------------
     //

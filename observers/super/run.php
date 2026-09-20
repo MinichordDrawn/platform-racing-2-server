@@ -1,6 +1,6 @@
 <?php
 
-namespace pr2obs\web;
+namespace pr2obs\super;
 
 require_once __DIR__ . '/store.php';
 require_once __DIR__ . '/procedures.php';
@@ -9,7 +9,6 @@ require_once __DIR__ . '/cycle.php';
 require_once __DIR__ . '/apply.php';
 require_once __DIR__ . '/log.php';
 require_once __DIR__ . '/container.php';
-require_once __DIR__ . '/schedules.php';
 
 // The observer process.
 //
@@ -68,10 +67,6 @@ $identity = required_string('OBSERVER_IDENTITY');
 $min_cycle_ms = required_int('OBSERVER_MIN_CYCLE_MS', 0, 60000);
 $stores   = getenv('OBSERVER_STORES') ?: '/stores';
 
-// Traces live in the application's own volume, because the work writes them
-// and an observer never does. A literal path rather than the application's
-// CACHE_DIR constant: this process loads nothing from the application.
-$traces   = getenv('OBSERVER_TRACES') ?: '/pr2/shared/traces';
 
 $params = array(
     // Settled by the design, so it is not configuration.
@@ -214,8 +209,12 @@ while (true) {
         'unchanged'       => $state['unchanged'] ?? array(),
         'own_store_writable' => $writable,
         'container_baseline' => $container_baseline,
-        'traces_root'     => $traces,
-        'traces'          => schedules_config(),
+        // No scheduled work runs on this host, so there are no traces to
+        // read. The trace validations are present in this observer and stay
+        // unused: a copy that quietly diverged from the others would be the
+        // beginning of four implementations that are no longer the same one.
+        'traces_root'     => '',
+        'traces'          => array(),
         // T4 asks the database whether the work the trace claims was done
         // actually is done. That needs a credential and belongs with the
         // other local checks in step 8; the classification it feeds is

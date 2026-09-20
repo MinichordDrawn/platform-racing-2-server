@@ -73,8 +73,19 @@ COPY docker/minute-cron /etc/cron.d/minute-cron
 RUN sed -i 's/\r$//' /etc/cron.d/minute-cron \
     && chmod 0644 /etc/cron.d/minute-cron
 
-# Ensure cron logs to stdout
-RUN ln -sf /proc/1/fd/1 /var/log/cron.log
+# Job output goes to a real file the unprivileged jobs can write, which the
+# cron container tails to its own stdout.
+#
+# The usual trick is to symlink this at /proc/1/fd/1 so job output lands on the
+# container log directly. That descriptor belongs to PID 1 and is mode 0200, so
+# it works only while the jobs run as root -- and the moment they dropped to
+# www-data, the redirection in every crontab line failed and cron stopped
+# running the commands at all.
+RUN touch /var/log/cron.log \
+    && chown www-data:www-data /var/log/cron.log \
+    && chmod 0664 /var/log/cron.log
+
+COPY docker/cron_startup.sh /cron_startup.sh
 
 # Enable reverse proxy support for same-origin PR2Hub and WebSocket forwarding.
 RUN a2enmod proxy proxy_http proxy_wstunnel env \
@@ -116,9 +127,9 @@ RUN mkdir -p /var/run/apache2 /var/lock/apache2 \
 # unwritable to a container that no longer runs as root.
 RUN mkdir -p /pr2/shared && chown -R www-data:www-data /pr2/shared
 
-RUN mkdir -p /stores/web/copy /stores/web/halts \
-             /stores/multi/copy /stores/multi/halts \
-             /stores/policy/copy /stores/policy/halts \
+RUN mkdir -p /stores/web/copy /stores/web/copy-super /stores/web/halts \
+             /stores/multi/copy /stores/multi/copy-super /stores/multi/halts \
+             /stores/policy/copy /stores/policy/copy-super /stores/policy/halts \
              /stores/super/halts \
              /stores/super/copy-web /stores/super/copy-multi /stores/super/copy-policy \
     && chown -R www-data:www-data /stores

@@ -239,6 +239,11 @@ function check_container(Reader $R, array $baseline): void
         }
     }
 
+    // A container with no application in it has no configuration to check, and
+    // says so with an empty constant rather than by a check that quietly finds
+    // no file and reports nothing.
+    if (CONTAINER_ENV_FILE !== '') {
+
     // The images ship env.example.php as env.php, so a deployment that has not
     // replaced it is running on secrets anyone who can read the repository
     // holds. The boot check refuses to start on that, but it fires once; this
@@ -263,9 +268,15 @@ function check_container(Reader $R, array $baseline): void
         unset($env);
     }
 
-    // --- the work is actually there ---------------------------------------
+    }
 
-    if (!process_running(CONTAINER_PROCESS)) {
+    // --- the work is actually there ---------------------------------------
+    //
+    // Empty constants mean there is none: the super observer's container runs
+    // the observer and nothing else, so a process check there would assert
+    // that the thing doing the asserting exists.
+
+    if (CONTAINER_PROCESS !== '' && !process_running(CONTAINER_PROCESS)) {
         $R->fail('process-alive', null, CONTAINER_PROCESS . ' is not running');
     }
 

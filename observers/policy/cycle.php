@@ -35,11 +35,19 @@ function copies_for(Reader $R): array
         }
         foreach (array('web', 'multi', 'policy') as $store) {
             $out[] = array('dir' => $R->storePath($store, 'copy'), 'author' => copy_author_of($store));
+            $out[] = array('dir' => $R->storePath($store, 'copy-super'), 'author' => 'super');
         }
     } else {
+        // Its own copy/, written by its cycle peer, and its own copy-super/,
+        // written by the super observer. Each application observer is one of
+        // three independent validators of the super observer's store.
         $out[] = array(
             'dir'    => $R->storePath($R->identity, 'copy'),
             'author' => copy_author_of($R->identity),
+        );
+        $out[] = array(
+            'dir'    => $R->storePath($R->identity, 'copy-super'),
+            'author' => 'super',
         );
     }
     // In identity order of author, then by path, so two copies of the same
@@ -171,6 +179,8 @@ function any_fault_present(Reader $R, array $members): bool
  */
 function run_cycle(array $config): array
 {
+    $began = hrtime(true);
+
     $R = new Reader(
         $config['stores'],
         $config['identity'],
@@ -191,6 +201,7 @@ function run_cycle(array $config): array
     }
     $members = identity_order($members);
     $R->others = array_values(array_diff($members, array($R->identity)));
+    $R->unchanged = $config['unchanged'] ?? array();
 
     $own = own_entries($R);
 
@@ -208,13 +219,16 @@ function run_cycle(array $config): array
 
     // 3. Own store.
     //
-    // Anything the previous cycle could only learn while writing -- a failed
-    // publication, a re-read that did not match, a cycle that overran its
-    // cadence -- is reported here, because that cycle had already published by
-    // the time it found out. SPEC 13.12 says so for the cadence and the same
-    // reasoning covers the rest.
-    foreach (($config['deferred'] ?? array()) as $d) {
-        $R->fail($d['check'], $d['subject'], $d['detail'] ?? '');
+    // SPEC 13.3: prove the store is writable by creating and removing a
+    // staging file, before anything depends on it. Asking now rather than
+    // finding out at publication is the whole point -- a finding this cycle
+    // can act on is worth more than one the next cycle inherits.
+    // The probe itself is a write, so it is done by the process that is
+    // allowed to write -- run.php, just before this cycle -- and its result
+    // passed in. A fixture is a read-only snapshot and cannot express it,
+    // which the fixture set says outright. Absent means not probed.
+    if (array_key_exists('own_store_writable', $config) && $config['own_store_writable'] === false) {
+        $R->fail('own-store-writable', null, 'the heartbeat folder cannot be written');
     }
     check_store_root($R, $R->identity);
     invariant_5($R);
@@ -256,6 +270,19 @@ function run_cycle(array $config): array
     }
     if (!empty($config['db'])) {
         check_postconditions($R, $config['db']);
+    }
+
+    // 7b. This observer's own cycle, timed against the ceiling it declares.
+    //
+    // Measured over the work rather than the whole cycle, so that an overrun
+    // is known before the heartbeat is published and can be acted on now.
+    // Reporting it next cycle would delay it by exactly as long as the overrun
+    // that caused it -- longest when it matters most.
+    $work = (hrtime(true) - $began) / 1e9;
+    if ($work > $R->param('cadence_seconds')) {
+        $R->fail('cycle-within-cadence', null,
+            sprintf('the cycle took %.2fs against a maximum of %ds',
+                    $work, $R->param('cadence_seconds')));
     }
 
     // --- what the cycle concluded ----------------------------------------

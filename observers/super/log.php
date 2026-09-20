@@ -1,6 +1,6 @@
 <?php
 
-namespace pr2obs\multi;
+namespace pr2obs\super;
 
 // The log (SPEC.md 12.4).
 //

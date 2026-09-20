@@ -1,6 +1,6 @@
 <?php
 
-namespace pr2obs\policy;
+namespace pr2obs\super;
 
 require_once __DIR__ . '/store.php';
 require_once __DIR__ . '/procedures.php';

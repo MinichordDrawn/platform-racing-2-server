@@ -1,6 +1,6 @@
 <?php
 
-namespace pr2obs\policy;
+namespace pr2obs\super;
 
 require_once __DIR__ . '/store.php';
 require_once __DIR__ . '/procedures.php';
@@ -34,20 +34,28 @@ require_once __DIR__ . '/procedures.php';
 // assert it.
 
 // --- the column -----------------------------------------------------------
+//
+// The super observer's container holds the observer and nothing else. There is
+// no application in it, no web server, no game server, no database client --
+// which makes the rule that an observer cannot be stopped by a bug in what it
+// watches true here by construction rather than by discipline.
+//
+// So this column is almost empty, and that is the correct shape rather than an
+// omission. There is no work process to assert is alive, because the observer
+// is the only process. There is no port, because it listens on nothing. There
+// is no env.php, because there is no application to configure. What remains is
+// what any container can be held to: its interpreter, its extensions, and the
+// code it shipped with.
 
 const CONTAINER_PHP_VERSION = '8.2';
 
-const CONTAINER_EXTENSIONS = array('pdo_mysql', 'sockets');
+// Nothing beyond what PHP builds in. The observer needs hashing and JSON and
+// no more, and an extension this image does not install appearing at runtime
+// is caught by the baseline rather than by a declaration.
+const CONTAINER_EXTENSIONS = array();
 
-// The smallest of the three: seventy-nine lines of policy server, the shared
-// bootstrap, and the vendored socket daemon. It copies no functions directory
-// and no served tree.
 const CONTAINER_CODE_PATHS = array(
-    '/pr2/config.php',
-    '/pr2/common',
-    '/pr2/policy_server',
-    '/pr2/vend',
-    '/pr2/observers/policy',
+    '/pr2/observers/super',
 );
 
 const CONTAINER_NOT_CODE = array();
@@ -55,31 +63,27 @@ const CONTAINER_NOT_CODE = array();
 const CONTAINER_DOCUMENT_ROOT = '';
 const CONTAINER_APACHE_MODULES = array();
 
-const CONTAINER_PROCESS = 'run_policy.php';
+// Empty on purpose: the observer is this container's only process, so a
+// process check here would assert that the thing doing the asserting exists.
+const CONTAINER_PROCESS = '';
 
-// The Flash policy port, as the process binds it inside the container. The
-// host publishes 843 and maps it here.
-const CONTAINER_PORTS = array('policy' => 8843);
+// It listens on nothing.
+const CONTAINER_PORTS = array();
 
-const CONTAINER_ENV_FILE    = '/pr2/common/env.php';
-const CONTAINER_ENV_EXAMPLE = '/pr2/common/env.example.php';
+// There is no application here to configure.
+const CONTAINER_ENV_FILE    = '';
+const CONTAINER_ENV_EXAMPLE = '';
 
 // Every identifier this file can fail. They are all assertions this observer
 // makes about its own world, so they all belong in its fault file.
 function container_local_checks(): array
 {
+    // Only what this container can fail. The others are absent because there
+    // is nothing here for them to be about, not because they were forgotten.
     return array(
         'code-unchanged',
         'php-version',
-        'extensions-declared',
         'extensions-unchanged',
-        'document-root',
-        'apache-modules',
-        'env-not-example',
-        'debug-mode-off',
-        'paypal-live',
-        'process-alive',
-        'port-answers',
     );
 }
 
