@@ -199,7 +199,7 @@ function process_update_cycle($socket, $data)
 function process_register_login($server_socket, $data)
 {
     if ($server_socket->process == true) {
-        global $login_array, $player_array, $guild_id, $guild_owner;
+        global $login_array, $player_array, $guild_id, $guild_owner, $max_players;
 
         $login_obj = json_decode($data);
         $login_id = (int) $login_obj->login->login_id;
@@ -277,6 +277,18 @@ function process_register_login($server_socket, $data)
                 $msg = 'Error: This account or IP address has been kicked from this server for 30 minutes. '
                     ."The kick will expire in approximately $dur.";
                 $socket->write("message`$msg");
+            } elseif (!server_has_room(get_population(), $group, $max_players)) {
+                // No room for this account. Settled here, before a Player is
+                // built, because the verdict below is whether one was: a
+                // refusal reached after the object exists cannot be acted on
+                // by anything that reads that variable.
+                //
+                // The branches above this one keep a seat that is already
+                // taken, so none of them arrive here. Only a login that wants
+                // a seat of its own is asked for room.
+                output("Refused a login for a server with no room for it: $login_id");
+                $socket->write('loginFailure`');
+                $socket->write('message`Sorry, this server is full. Try back later.');
             } else {
                 $player = new \pr2\multi\Player($socket, $login_obj);
                 $socket->player = $player;

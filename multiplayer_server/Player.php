@@ -137,6 +137,18 @@ class Player
         $this->user_id = (int) $login->user->user_id;
         $this->name = $login->user->name;
         $this->group = (int) $login->user->power;
+
+        // Room for this account, asked before anything is built and before the
+        // socket is pointed at this object.
+        //
+        // The caller settles the same question and refuses the login without
+        // reaching here, so arriving here with no room means that test did not
+        // run. There is nobody to report that to from inside a constructor and
+        // nothing this object could usefully become, so it throws.
+        if (!server_has_room(get_population(), $this->group, $max_players)) {
+            throw new \Exception('This server is full.');
+        }
+
         $this->trial_mod = (bool) (int) $login->user->trial_mod;
         $this->verified = (bool) (int) $login->user->verified;
         $this->ca = (bool) (int) $login->user->ca;
@@ -202,32 +214,21 @@ class Player
         $socket->player = $this;
         $this->active_rank = $this->rank + $this->rt_used;
 
-        // final checks
-        $pCount = count(array_filter($player_array, function ($player) {
-            return isset($player) && $player->isConnected();
-        })); // server full?
-        if (($pCount > $max_players && $this->group < 2) || ($pCount > ($max_players - 10) && $this->group === 0)) {
-            $this->write('loginFailure`');
-            $this->write('message`Sorry, this server is full. Try back later.');
-            $this->remove();
-        } else { // add to the player array
-            $player_array[$this->user_id] = $this;
-        }
+        // add to the player array
+        $player_array[$this->user_id] = $this;
 
         // if they're special, flag them for session bootstrap packets
         if (in_array($this->user_id, $special_ids)) {
             $this->special_user = true;
         }
 
-        if (isset($player_array[$this->user_id])) {
-            if ($login->login->award_kong) {
-                $this->awardKongParts();
-            }
-            $this->applyTempItems();
-            $this->verifyStats();
-            $this->verifyParts();
-            $this->sendSessionBootstrap();
+        if ($login->login->award_kong) {
+            $this->awardKongParts();
         }
+        $this->applyTempItems();
+        $this->verifyStats();
+        $this->verifyParts();
+        $this->sendSessionBootstrap();
     }
 
     public function getInfo()

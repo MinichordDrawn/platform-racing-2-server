@@ -398,6 +398,34 @@ function get_population()
 }
 
 
+// Whether a server holding this many players has room for an account of this
+// power.
+//
+// Guests are held ten places short of the cap, so that the last of it goes to
+// accounts. Staff are admitted whatever the population, which is how a full
+// server can still be moderated.
+//
+// This is a question about three numbers and nothing else, which is what lets
+// it be settled before a Player is built. Answering it from inside the object
+// means the answer arrives after the thing it was meant to prevent.
+function server_has_room($population, $group, $max_players)
+{
+    $population = (int) $population;
+    $group = (int) $group;
+    $max_players = (int) $max_players;
+
+    if ($group >= 2) {
+        return true;
+    }
+
+    if ($group === 0) {
+        return $population <= $max_players - 10;
+    }
+
+    return $population <= $max_players;
+}
+
+
 // get server status
 function get_status()
 {
