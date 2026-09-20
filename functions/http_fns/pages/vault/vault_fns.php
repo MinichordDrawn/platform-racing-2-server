@@ -74,6 +74,16 @@ function describeVault($pdo, $user, $items_to_get = 'all')
             $item->available = true;
         }
 
+        // Asked after the chain above, so that an item this package cannot
+        // deliver stays unavailable whatever a branch there decided. The
+        // endpoint refuses an unavailable item before it prices anything or
+        // touches the buyer's coins.
+        $withdrawn = vault_withdrawn_slugs();
+        if (isset($withdrawn[$slug])) {
+            $item->available = false;
+            $item->faq .= "\n\n<b>Why can't I buy this?</b>\n" . $withdrawn[$slug];
+        }
+
         $listings[] = $item;
     }
 
@@ -126,6 +136,33 @@ function vault_delivery_reached_a_server($results)
     }
 
     return false;
+}
+
+
+// Items this package cannot deliver, and what to tell a buyer who asks.
+//
+// Deprecated rather than deleted: the code that would sell and deliver a guild
+// server is left where it is, so restoring one is removing an entry here
+// rather than writing it again.
+//
+// This is a list in code and not the column in the item table, because that
+// column says whether an item is switched on and this says whether anything
+// can deliver it. Switching the column back on would not make a server start.
+//
+// A guild server needs a second game server process. Nothing here starts one:
+// no function of that name is defined in the package, and the container image
+// starts a single process with a fixed identifier. A row written for a server
+// that does not run keeps the status its schema gives it, the poller reads
+// that as down, and every login to it is refused.
+function vault_withdrawn_slugs()
+{
+    $servers = 'Private guild servers are not available at the moment. '
+        . 'Please contact a member of the PR2 staff team if your guild needs one.';
+
+    return array(
+        'server_1_day' => $servers,
+        'server_30_days' => $servers,
+    );
 }
 
 
