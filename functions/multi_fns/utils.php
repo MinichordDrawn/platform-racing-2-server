@@ -1,7 +1,6 @@
 <?php
 
 
-// get the next login id
 // How many eggs a race has.
 //
 // The server announces this number to every client at the start of an egg
@@ -183,7 +182,7 @@ function accepted_finish_ms($local_finish_ms, $server_finish_ms)
 // says nothing about any other. Whoever runs the client holds its own key, so
 // this cannot stop a player forging their own packets; checking the values
 // themselves, server side, is what does that.
-function client_session_key()
+function new_session_key()
 {
     return bin2hex(random_bytes(32));
 }
@@ -195,7 +194,7 @@ function client_session_key()
 // its length first, so that moving a character out of one field and into the
 // next cannot produce the same string to sign. A separator alone would not do
 // that, because the separator can appear inside the data.
-function client_packet_signature($session_key, $send_num, $call, $data)
+function sign_client_packet($session_key, $send_num, $call, $data)
 {
     $payload = (int) $send_num
         . '`' . strlen((string) $call) . ':' . $call
@@ -211,7 +210,7 @@ function client_packet_signature($session_key, $send_num, $call, $data)
 // its own server from anything else that reaches the connection. It was a
 // three character digest of a constant compiled into the client, which told a
 // client nothing it did not already hold.
-function server_packet_signature($session_key, $send_num, $body)
+function sign_server_packet($session_key, $send_num, $body)
 {
     $payload = (int) $send_num . '`' . strlen((string) $body) . ':' . $body;
 

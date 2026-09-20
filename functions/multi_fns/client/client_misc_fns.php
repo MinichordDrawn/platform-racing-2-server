@@ -37,7 +37,7 @@ function client_request_login_id($socket)
         // The key goes out before it is held, so that the message carrying it
         // is not itself signed with it. A client has nothing to check that one
         // against, and everything after it is signed.
-        $key = client_session_key();
+        $key = new_session_key();
         $socket->write('setSessionKey`' . $key);
         $socket->session_key = $key;
 

@@ -87,7 +87,7 @@ class PR2Client extends \chabot\SocketServerClient
                         throw new \Exception('A command arrived before this connection had a session key.');
                     }
                 } else {
-                    $expected = \client_packet_signature($this->session_key, $send_num, $call, $data);
+                    $expected = \sign_client_packet($this->session_key, $send_num, $call, $data);
 
                     if (!hash_equals($expected, (string) $hash)) {
                         $this->close();
@@ -171,7 +171,7 @@ class PR2Client extends \chabot\SocketServerClient
             // the only one that does.
             $signature = $this->session_key === null
                 ? ''
-                : \server_packet_signature($this->session_key, $this->send_num, $body);
+                : \sign_server_packet($this->session_key, $this->send_num, $body);
 
             $buffer = $signature . '`' . $body;
         }
