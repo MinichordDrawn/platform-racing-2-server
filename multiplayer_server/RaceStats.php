@@ -33,6 +33,8 @@ class RaceStats
     public $hat_blocked = false;
 
     public $eggs = 0;
+    // which eggs this player has handed in, so one cannot be handed in twice
+    public $eggs_taken = array();
     public $objectives_reached = array();
     public $last_objective_time = 0;
 

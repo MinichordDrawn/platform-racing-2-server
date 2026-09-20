@@ -139,6 +139,14 @@ function client_heart($socket)
 {
     $player = $socket->getPlayer();
     if (isset($player->game_room)) {
+        // The server does not model heart blocks, so it cannot tell whether
+        // this one was really collected. The ceiling bounds the claim rather
+        // than checking it: without one, lives are immunity in deathmatch,
+        // where they decide elimination and elimination order is the placement.
+        if ($player->lives >= max_lives()) {
+            return;
+        }
+
         $player->lives++;
         $player->game_room->broadcastHeart($player);
     }

@@ -2,6 +2,53 @@
 
 
 // get the next login id
+// How many eggs a race has.
+//
+// The server announces this number to every client at the start of an egg
+// race, so it is the number it has committed to and the ceiling on what anyone
+// can collect. Announcing and bounding read the same value so they cannot
+// drift apart.
+function egg_count()
+{
+    return 10;
+}
+
+
+// Whether a value can be one of this race's eggs.
+//
+// The identifier goes into the name of a packet the other players receive, so
+// a value carrying the field delimiter would let the sender choose that
+// packet's shape.
+function valid_egg_id($value)
+{
+    if (!ctype_digit((string) $value)) {
+        return false;
+    }
+
+    return (int) $value < egg_count();
+}
+
+
+// The most lives a player may hold.
+//
+// The server does not model heart blocks, so it cannot tell whether a
+// particular heart was really collected. This bounds the claim rather than
+// verifying it, which is the honest description: unbounded lives are immunity
+// in deathmatch, where lives are what decide elimination and elimination order
+// is the placement. $MAX_LIVES overrides it, and a value that is not a
+// positive number is ignored rather than read as no ceiling.
+function max_lives()
+{
+    global $MAX_LIVES;
+
+    if (isset($MAX_LIVES) && (int) $MAX_LIVES > 0) {
+        return (int) $MAX_LIVES;
+    }
+
+    return 25;
+}
+
+
 // Whether a ban row has been lifted.
 //
 // The column is a BIT, which reaches PHP as a raw byte through some drivers

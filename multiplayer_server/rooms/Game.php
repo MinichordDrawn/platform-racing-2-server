@@ -638,7 +638,7 @@ class Game extends Room
             // eggs
             if ($this->mode == self::MODE_EGG) {
                 $this->sendToAll('setEggSeed`'.rand(0, 99999));
-                $this->sendToAll('addEggs`10');
+                $this->sendToAll('addEggs`' . egg_count());
             }
 
             // sfchm
@@ -1676,14 +1676,36 @@ class Game extends Room
 
     public function grabEgg($player, $data)
     {
-        if (!$player->race_stats->finished_race) {
-            $player->race_stats->eggs++;
-            $this->recordReconnectEvent('egg_remove', "removeEgg$data`");
-            $this->sendToRoom("removeEgg$data`", $player->user_id);
-            $this->broadcastFinishTimes();
-            $this->recordReconnectEvent('egg_add', 'addEggs`1');
-            $this->sendToAll('addEggs`1');
+        if ($player->race_stats->finished_race) {
+            return;
         }
+
+        // The identifier names one of the eggs this race announced, and goes
+        // into the name of a packet the other players receive.
+        if (!\valid_egg_id($data)) {
+            return;
+        }
+
+        $egg_id = (int) $data;
+
+        // One egg is one egg. Without this the same one could be handed in
+        // repeatedly, and the count is the whole placement key in egg mode.
+        if (isset($player->race_stats->eggs_taken[$egg_id])) {
+            return;
+        }
+
+        // Nobody collects more than the race contains.
+        if ($player->race_stats->eggs >= \egg_count()) {
+            return;
+        }
+
+        $player->race_stats->eggs_taken[$egg_id] = true;
+        $player->race_stats->eggs++;
+        $this->recordReconnectEvent('egg_remove', "removeEgg$egg_id`");
+        $this->sendToRoom("removeEgg$egg_id`", $player->user_id);
+        $this->broadcastFinishTimes();
+        $this->recordReconnectEvent('egg_add', 'addEggs`1');
+        $this->sendToAll('addEggs`1');
     }
 
 
