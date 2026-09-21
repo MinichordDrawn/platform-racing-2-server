@@ -173,8 +173,20 @@ if (is_dir($source)) {
     // Fixtures are never written to; each run gets its own copy.
     $runs = array();
     foreach (array('collecting', 'throwing') as $which) {
-        $work = sys_get_temp_dir() . "/pr2obs-$which-" . getmypid();
+        // A name no other run can be holding.
+        //
+        // This used to be the process id alone, and `remove_tree` suppresses
+        // its own errors -- so a leftover directory that could not be deleted
+        // was merged into by the copy below rather than replaced, and the
+        // fixture quietly became a different fixture. That showed up as this
+        // file failing inside the suite perhaps once in ten runs and passing
+        // on its own immediately afterwards, which is the worst way for a test
+        // to be wrong: it looks like noise, so it gets treated as noise.
+        $work = sys_get_temp_dir() . "/pr2obs-$which-" . getmypid() . '-' . mt_rand();
         remove_tree($work);
+
+        // And if the ground is not clean, say so rather than build on it.
+        ok(!is_dir($work), "$which starts from a directory nothing else holds");
         copy_tree($source, $work);
         $runs[$which] = $work;
     }
@@ -253,10 +265,34 @@ if (is_dir($source)) {
     // The one that matters.
     ok(!$results['throwing']['threw'], 'a log sink that throws does not propagate out');
     ok($results['throwing']['halt_file'], 'and the halt file is written anyway');
+    // Compared with `when` set aside, because `when` is the clock and not the
+    // halt.
+    //
+    // `apply_cycle` stamps a halt from the real clock (`apply.php`), so these
+    // two runs -- which are two real cycles, one after the other -- carry the
+    // second each happened in. Comparing the bytes therefore failed whenever
+    // the pair straddled a second boundary: about one run in ten, passing
+    // immediately afterwards, which reads as noise and was twice dismissed as
+    // noise in this session before being run down. The claim being made here
+    // is that a log sink which throws does not change the halt, and the clock
+    // is not something the log changes.
+    $halts = array();
+    foreach (array('collecting', 'throwing') as $which) {
+        $decoded = json_decode($results[$which]['halt_body'], true);
+        ok(is_array($decoded), "the $which run's halt file parses");
+        ok(
+            is_array($decoded) && isset($decoded['when'])
+                && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\z/', $decoded['when']) === 1,
+            "and carries a timestamp of the one fixed form"
+        );
+        unset($decoded['when']);
+        $halts[$which] = $decoded;
+    }
+
     is_same(
-        $results['throwing']['halt_body'],
-        $results['collecting']['halt_body'],
-        'with exactly the same content as when the log worked'
+        $halts['throwing'],
+        $halts['collecting'],
+        'with exactly the same content as when the log worked, the clock aside'
     );
 
     foreach ($runs as $work) {
