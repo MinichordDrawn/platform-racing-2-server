@@ -72,13 +72,53 @@ register_shutdown_function('__crashHandler');
 // output status to console
 output("Initializing startup...");
 
+// Ask the observer network before anything else this process does.
+//
+// config.php does not ask on this process's behalf: this is one of the two
+// entrypoints exempt from the refusal that exits, because exiting here would
+// end the container and the observer inside it. The exemption is granted on
+// the grounds that this process carries a continuous check of its own -- the
+// socket daemon's timer -- which does not fire until the loop is running.
+// Everything before that point is unasked unless it is asked here.
+//
+// This read used to sit eighty-eight lines below the connection, under a
+// comment claiming it came first. Nothing between the two touches the database
+// -- the prize tables are built in memory and the rooms hold no connection --
+// so the only thing the old order bought was a database connection opened by a
+// deployment that had been told to stop.
+$gate = \observer_gate_settings();
+PR2SocketServer::$halted = is_string($gate)
+    ? $gate                                  // an environment the gate cannot read
+    : \observer_gate_reason($gate);
+
 // connect to the db
+//
+// `$pdo` is the global every query in this server goes through, so opening it
+// is touching the database in the only sense that matters. While the ring says
+// stop it is not opened at all, and the first clear tick opens it alongside the
+// loadup it deferred.
 $reconnect_attempted = false;
-try {
-    $pdo = pdo_connect();
-} catch (Exception $e) {
-    output('FATAL ERROR: ' . $e->getMessage());
-    die();
+$pdo = null;
+if (PR2SocketServer::$halted === null) {
+    try {
+        $pdo = pdo_connect();
+    } catch (Exception $e) {
+        // Not a reason to exit, and it used to be one.
+        //
+        // Exiting here ends this container and the observer living in it. The
+        // ring is then a member short, every remaining member raises a halt
+        // for the member that vanished, and none of them can lift it, because
+        // what would lift it is the process that just exited. A database that
+        // was briefly unreachable therefore turned into a deployment that
+        // stayed stopped -- the failure mode the exemption for this entrypoint
+        // exists to avoid, reached by a different route.
+        //
+        // So it does what a halt does: stays running, leaves the loadup undone
+        // and lets the first tick that can connect do it. The startup path and
+        // the recovery path stay the same path.
+        output('--- DATABASE UNREACHABLE --- ' . $e->getMessage());
+        $pdo = null;
+    }
 }
 
 // server info
@@ -143,32 +183,20 @@ $search_room = new LevelListRoom('search');
 output('Requesting loadup information...');
 $uptime = time();
 
-// Ask the observer network before touching the database.
+// What the answer read at the top of this file means for the loadup.
 //
-// config.php does not ask on this process's behalf: this is one of the two
-// entrypoints exempt from the refusal that exits, because exiting here ends
-// the container and the observer inside it. The exemption is granted on the
-// grounds that this process carries a continuous check of its own, and that
-// check is the socket daemon's timer, which does not fire until the loop is
-// running. Everything between here and there was happening unasked.
-//
-// That window is three to four seconds and it was not idle. The loadup reads
-// six tables and writes a row saying this server is up and open, which is the
-// row the web tier reads to decide where to send players, so a halted
-// deployment advertised a game server as available. Then both ports bound and
-// admitted whatever arrived.
+// The window this closes is three to four seconds and it was not idle. The
+// loadup reads six tables and writes a row saying this server is up and open,
+// which is the row the web tier reads to decide where to send players, so a
+// halted deployment advertised a game server as available. Then both ports
+// bound and admitted whatever arrived.
 //
 // The process still starts and still binds, because the observer beside it
 // asserts that this process is alive and these ports answer, and a server that
 // refused to bind would fault its own container and stop the ring rather than
 // itself. What it does not do while halted is touch the database or serve
 // anybody.
-$gate = \observer_gate_settings();
-PR2SocketServer::$halted = is_string($gate)
-    ? $gate                                  // an environment the gate cannot read
-    : \observer_gate_reason($gate);
-
-if (PR2SocketServer::$halted === null) {
+if (PR2SocketServer::$halted === null && $pdo !== null) {
     begin_loadup($server_id);
     PR2SocketServer::$loaded = true;
 } else {

@@ -71,7 +71,24 @@ class PR2SocketServer extends \chabot\SocketServer
         // halt is the thing being prevented. A server that came up while the
         // ring said stop reaches this on the first clear tick.
         if (!self::$loaded) {
-            global $server_id;
+            global $server_id, $pdo;
+
+            // And the connection the halt postponed with it. A process that
+            // started while the ring said stop never opened one, because
+            // opening it is touching the database; every query below goes
+            // through this global, so it is established here or not at all.
+            if ($pdo === null) {
+                try {
+                    $pdo = \pdo_connect();
+                } catch (\Exception $e) {
+                    // Still unreachable. Every sweep below this needs the
+                    // database too, so there is nothing useful to do this
+                    // tick -- and nothing worth ending the process for. Try
+                    // again on the next one.
+                    return;
+                }
+            }
+
             \begin_loadup($server_id);
             self::$loaded = true;
             output('--- loaded up ---');
