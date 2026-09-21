@@ -896,9 +896,42 @@ class Player
     public function saveInfo()
     {
         global $server_id;
-        
+
         // make sure there's something to save
         if (!isset($this->user_id)) {
+            return false;
+        }
+
+        // And make sure the deployment is allowed to save it.
+        //
+        // This runtime's gate is the socket daemon's timer: once a tick it
+        // reads the store and sets a flag the work inside that tick honours.
+        // Two ways here are not inside a tick.
+        //
+        // A fatal error anywhere in a tick ends the process, and PHP then runs
+        // the shutdown function registered at startup, which walks every
+        // connected player calling remove() -- and remove() calls this. That
+        // path is below the last tick, so nothing stood between the error and
+        // six writes per connected player. The moment the database misbehaves
+        // badly enough to end the process was the moment the process wrote to
+        // it hardest, and a halt landing between the throw and the shutdown
+        // function was never seen, because there would be no further tick.
+        //
+        // The other is any disconnect at all. remove() is reached from a dozen
+        // places, one of them the socket layer's own disconnect handling, and
+        // a socket can close while the ring says stop -- when the read path is
+        // already discarding everything that arrives.
+        //
+        // So the question is asked here, at the one function that writes a
+        // player's row, rather than at each of the ways in. An environment the
+        // gate cannot read refuses too, which is the direction that is safe:
+        // not saving loses what has happened since the last save, and saving
+        // into a deployment that has been told to stop is the thing the whole
+        // network exists to prevent.
+        $gate = \observer_gate_settings();
+        $halted = is_string($gate) ? $gate : \observer_gate_reason($gate);
+        if ($halted !== null) {
+            \output("--- NOT SAVING {$this->name} --- $halted");
             return false;
         }
 
