@@ -37,6 +37,20 @@ COPY observers/super/ /pr2/observers/super
 
 USER www-data
 
+# The manifest of what this image contains, taken from the code that went into
+# it and shipped inside it. See the note on the other three images: the
+# observer used to walk its own container at start-up and call that the
+# baseline, so a tree altered before it started baselined as intended.
+#
+# It runs as root, so the file is root-owned, and 0444 leaves it unwritable by
+# the unprivileged user this observer runs as. It must be the last thing that
+# touches /pr2.
+# Taken as root, so the file is root-owned and the unprivileged user the
+# work runs as cannot rewrite it, then straight back to that user.
+USER root
+RUN php -r 'require "/pr2/observers/super/container.php";         $e = get_loaded_extensions(); sort($e, SORT_STRING);         file_put_contents("/pr2/.container-baseline", json_encode(array(             "code" => \pr2obs\super\code_manifest(), "extensions" => $e))); '     && chmod 0444 /pr2/.container-baseline
+USER www-data
+
 # -d auto_prepend_file= is belt and braces here, since this image installs no
 # prepend at all. It is kept so that every observer in the deployment is
 # started the same way, and so the rule can be checked in one place.

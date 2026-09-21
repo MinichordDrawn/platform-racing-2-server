@@ -134,6 +134,27 @@ RUN mkdir -p /stores/web/copy /stores/web/copy-super /stores/web/halts \
              /stores/super/copy-web /stores/super/copy-multi /stores/super/copy-policy \
     && chown -R www-data:www-data /stores
 
+# The manifest of what this image contains, taken from the code that went into
+# it and shipped inside it.
+#
+# The observer used to walk its own container at start-up and call that the
+# baseline, which meant a tree altered before the observer started baselined as
+# intended: `code-unchanged` was really saying "nothing changed while I was
+# watching". Taking it here closes the gap between the image being built and
+# the observer starting.
+#
+# It runs as root, so the file is root-owned, and 0444 leaves it unwritable by
+# the unprivileged user the work runs as. It must be the last thing that
+# touches /pr2, or it describes a tree the image does not ship.
+#
+# -d auto_prepend_file= for the usual reason: config.php would otherwise run in
+# front of this and refuse, and this is a build step, not a request.
+RUN php -d auto_prepend_file= -r 'require "/pr2/observers/web/container.php"; \
+        $e = get_loaded_extensions(); sort($e, SORT_STRING); \
+        file_put_contents("/pr2/.container-baseline", json_encode(array( \
+            "code" => \pr2obs\web\code_manifest(), "extensions" => $e))); ' \
+    && chmod 0444 /pr2/.container-baseline
+
 USER www-data
 
 ENTRYPOINT []

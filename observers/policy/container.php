@@ -133,15 +133,77 @@ function code_manifest(): array
     return $out;
 }
 
-// Captured once, when the observer starts.
-function container_baseline(): array
+// What the deployment supplies rather than the image.
+//
+// `common/env.php` is the shipped example at build time by construction -- the
+// boot refusal exists precisely because a real deployment must replace it --
+// so it can never appear in an image-time manifest with the value it will have
+// when it runs. It is therefore the one path still baselined from the
+// container, at observer start, the way everything used to be.
+//
+// Stated as a list so that what is held to the weaker standard is visible
+// rather than implied. The weaker standard is not nothing: it still catches
+// the file changing under a running container. What it cannot do is establish
+// what the file was before this observer started.
+const CONTAINER_SUPPLIED_AT_DEPLOYMENT = array('/pr2/common/env.php');
+
+// Where the build leaves the manifest of the image it produced.
+//
+// Deliberately outside every container's CONTAINER_CODE_PATHS, so the manifest
+// is not part of what it describes.
+const CONTAINER_BASELINE_FILE = '/pr2/.container-baseline';
+
+// Read from the image, not captured from the container.
+//
+// This used to walk the container's own tree once, at observer start, and call
+// the result the baseline. So a tree altered before the observer started --
+// or on the boot after a bounce -- baselined as intended, and every later
+// cycle agreed with it. What `code-unchanged` actually asserted was "nothing
+// changed while I was watching", which is a much smaller claim than its name,
+// and the gap between the image being built and the observer starting was
+// where an alteration was free.
+//
+// The manifest is now taken when the image is built, from the code that went
+// into it, by the same walk this file does. The build runs as root and leaves
+// the file read-only, so the unprivileged user the work runs as cannot rewrite
+// it to match a tree it has altered.
+//
+// **What this still does not establish.** That the image was the intended
+// image. A tampered image ships a manifest of its own tampered contents, and
+// nothing inside a deployment can tell the difference -- that needs provenance
+// from outside it. The claim here is narrower and now true: the tree this
+// container is running is the tree its image was built from.
+//
+// Returns null when there is no usable manifest, which the caller treats as a
+// finding. Falling back to walking the tree would be the original defect,
+// reached by deleting one file.
+function container_baseline(): ?array
 {
-    $extensions = get_loaded_extensions();
-    sort($extensions, SORT_STRING);
-    return array(
-        'code'       => code_manifest(),
-        'extensions' => $extensions,
-    );
+    $raw = @file_get_contents(CONTAINER_BASELINE_FILE);
+    if ($raw === false) {
+        return null;
+    }
+
+    $baseline = json_decode($raw, true);
+    if (!is_array($baseline)
+        || !isset($baseline['code'], $baseline['extensions'])
+        || !is_array($baseline['code'])
+        || !is_array($baseline['extensions'])
+    ) {
+        return null;
+    }
+
+    // The deployment-supplied paths, baselined from the container because
+    // there is nowhere else to get them. See CONTAINER_SUPPLIED_AT_DEPLOYMENT.
+    foreach (CONTAINER_SUPPLIED_AT_DEPLOYMENT as $path) {
+        if (!isset($baseline['code'][$path])) {
+            continue;
+        }
+        $hash = @hash_file('sha256', $path);
+        $baseline['code'][$path] = $hash === false ? 'unreadable' : $hash;
+    }
+
+    return $baseline;
 }
 
 
@@ -180,32 +242,39 @@ function port_answers(int $port): bool
     return true;
 }
 
-function check_container(Reader $R, array $baseline, bool $work_due = true): void
+function check_container(Reader $R, ?array $baseline, bool $work_due = true): void
 {
     // --- baselined: a running container does not change -------------------
 
-    $now = code_manifest();
-    if ($now !== $baseline['code']) {
-        $changed = array();
-        foreach ($now as $path => $hash) {
-            if (!isset($baseline['code'][$path])) {
-                $changed[] = "added $path";
-            } elseif ($baseline['code'][$path] !== $hash) {
-                $changed[] = "changed $path";
+    if ($baseline === null) {
+        // No manifest, no claim. Walking the tree instead would answer the
+        // question with the tree being asked about, which is the thing this
+        // stopped doing.
+        $R->fail('code-unchanged', null, 'the baseline shipped with this image is missing or unreadable');
+    } else {
+        $now = code_manifest();
+        if ($now !== $baseline['code']) {
+            $changed = array();
+            foreach ($now as $path => $hash) {
+                if (!isset($baseline['code'][$path])) {
+                    $changed[] = "added $path";
+                } elseif ($baseline['code'][$path] !== $hash) {
+                    $changed[] = "changed $path";
+                }
             }
-        }
-        foreach ($baseline['code'] as $path => $hash) {
-            if (!isset($now[$path])) {
-                $changed[] = "removed $path";
+            foreach ($baseline['code'] as $path => $hash) {
+                if (!isset($now[$path])) {
+                    $changed[] = "removed $path";
+                }
             }
+            $R->fail('code-unchanged', null, implode('; ', array_slice($changed, 0, 5)));
         }
-        $R->fail('code-unchanged', null, implode('; ', array_slice($changed, 0, 5)));
-    }
 
-    $extensions = get_loaded_extensions();
-    sort($extensions, SORT_STRING);
-    if ($extensions !== $baseline['extensions']) {
-        $R->fail('extensions-unchanged', null, 'the loaded extension set changed while running');
+        $extensions = get_loaded_extensions();
+        sort($extensions, SORT_STRING);
+        if ($extensions !== $baseline['extensions']) {
+            $R->fail('extensions-unchanged', null, 'the loaded extension set is not the one the image was built with');
+        }
     }
 
     // --- declared: the image is what it should be -------------------------
