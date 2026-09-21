@@ -240,6 +240,24 @@ foreach ($fixtures as $name) {
         continue;
     }
 
+    // The declared directories, created rather than assumed.
+    //
+    // An empty directory is part of a store tree: "this member has a halts
+    // folder and it is empty" is a different fact from "this member has no
+    // halts folder", and fixtures turn on exactly that distinction. git stores
+    // no empty directory, so every one of them is absent in a fresh clone and
+    // the fixture quietly becomes a different fixture -- one fixture lost its
+    // entire `stores` tree and still reported a complete set.
+    //
+    // The manifest has listed them all along and nothing read the list.
+    foreach ($manifest['directories'] ?? array() as $rel) {
+        $path = "$dir/$rel";
+        if (!is_dir($path) && !@mkdir($path, 0777, true)) {
+            $failed[$name] = array("could not create the declared directory $rel");
+            continue 2;
+        }
+    }
+
     // The declared mtimes, applied rather than assumed.
     //
     // Five fixtures turn on how old a staging file is, and that age was read
@@ -339,6 +357,57 @@ if (count($failed) > 0) {
 }
 
 ok(count($failed) === 0, 'every fixture passes');
+
+// And no fixture depends on a directory it has not declared.
+//
+// The two must agree exactly. A directory present but undeclared vanishes in a
+// clone and nothing puts it back; a directory declared but not present is a
+// fixture describing a tree it does not have.
+$mismatched = array();
+foreach ($fixtures as $name) {
+    $dir = FIXTURES . "/$name";
+    $manifest = json_decode(file_get_contents("$dir/manifest.json"), true);
+    $declared = $manifest['directories'] ?? array();
+    sort($declared, SORT_STRING);
+
+    // A declared path implies its parents: the list names `stores/web/halts`
+    // and not the `stores` above it, and `traces/daily` puts a `traces`
+    // alongside the store tree.
+    $allowed = array();
+    foreach ($declared as $rel) {
+        $parts = explode('/', $rel);
+        for ($i = 1; $i <= count($parts); $i++) {
+            $allowed[implode('/', array_slice($parts, 0, $i))] = true;
+        }
+    }
+
+    $present = array();
+    $stack = array($dir);
+    while ($stack) {
+        $at = array_pop($stack);
+        foreach (@scandir($at) ?: array() as $e) {
+            if ($e === '.' || $e === '..') {
+                continue;
+            }
+            if (is_dir("$at/$e")) {
+                $stack[] = "$at/$e";
+                $present[str_replace('\\', '/', substr("$at/$e", strlen($dir) + 1))] = true;
+            }
+        }
+    }
+
+    foreach ($declared as $rel) {
+        if (!isset($present[$rel])) {
+            $mismatched[] = "$name: declares $rel and does not have it";
+        }
+    }
+    foreach (array_keys($present) as $rel) {
+        if (!isset($allowed[$rel])) {
+            $mismatched[] = "$name: has $rel and does not declare it";
+        }
+    }
+}
+is_same($mismatched, array(), 'every fixture declares exactly the directories it has');
 
 // And no fixture depends on an mtime it has not declared.
 //
