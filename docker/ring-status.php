@@ -299,10 +299,36 @@ function render_lines(array $rates = array()): array
     // Taken from the files rather than computed: a halt in force is a halt in
     // force, whatever anything here thinks of the members' freshness.
 
-    $halted = array();
+    // A member is stopped when its gate refuses, and the gate reads its own
+    // halts/ folder. Only the member that raised the halt writes a `halt` file
+    // of its own; everybody else is stopped by the slots delivered into their
+    // halts/ by their peers. Counting halt files therefore said one of four
+    // when all four were refusing.
+    $stopped = array();
+    $halted  = array();
     foreach (MEMBERS as $m) {
+        if ($state[$m]['halt'] !== null || count($state[$m]['slots']) > 0) {
+            $stopped[$m] = true;
+        }
         if ($state[$m]['halt'] !== null) {
             $halted[$m] = $state[$m]['halt'];
+        }
+    }
+
+    // The reason, from whoever wrote one. Usually the member that found it; a
+    // delivered slot carries the same bytes, so it answers just as well when
+    // the raiser's own file is gone.
+    if (count($halted) === 0 && count($stopped) > 0) {
+        foreach (MEMBERS as $m) {
+            foreach ($state[$m]['slots'] as $slot) {
+                $raw = json_decode((string) @file_get_contents(
+                    STORES . '/' . $m . '/halts/' . $slot
+                ), true);
+                if (is_array($raw)) {
+                    $halted[$slot] = $raw;
+                    break 2;
+                }
+            }
         }
     }
     $missing = array();
@@ -317,9 +343,9 @@ function render_lines(array $rates = array()): array
         . str_repeat(' ', 22) . c(gmdate('Y-m-d\TH:i:s\Z', $now), 'grey');
     $L[] = '';
 
-    if (count($halted) > 0) {
-        $first = reset($halted);
-        $who   = key($halted);
+    if (count($stopped) > 0) {
+        $first = count($halted) > 0 ? reset($halted) : array();
+        $who   = count($halted) > 0 ? key($halted) : 'a member';
         $since = isset($first['when']) ? strtotime($first['when']) : null;
 
         $line = '  ' . c(' RING HALTED ', 'red') . '  '
@@ -332,7 +358,7 @@ function render_lines(array $rates = array()): array
             $line .= c(', ' . duration($now - $since) . ' ago', 'grey');
         }
         $L[] = $line;
-        $L[] = '  ' . c(count($halted) . ' of ' . count(MEMBERS) . ' members holding a halt.'
+        $L[] = '  ' . c(count($stopped) . ' of ' . count(MEMBERS) . ' members stopped.'
             . ' Clearing is unanimous, so the work stays stopped until every member reads clean.', 'grey');
     } elseif (count($missing) > 0) {
         $L[] = '  ' . c(' RING INCOMPLETE ', 'amber') . '  '
@@ -367,10 +393,21 @@ function render_lines(array $rates = array()): array
             $age_colour = 'red';
         }
 
-        if ($s['halt'] !== null) {
-            $label = c('halted', 'red');
-        } elseif ($s['fault'] !== null) {
+        // Fault before halt, because the member that found the problem has
+        // both files and would otherwise look like every member that is
+        // merely carrying the halt it raised.
+        //
+        //   fault   this one found something wrong. The line below says what
+        //   halt    this one is stopped, on a finding somebody else made
+        //   clear   nothing wrong here
+        //
+        // `halt` counts a delivered slot as well as a halt file of its own,
+        // because that is what its gate reads. A member that has been told is
+        // already refusing work, whether or not it has written anything yet.
+        if ($s['fault'] !== null) {
             $label = c('fault', 'red');
+        } elseif ($s['halt'] !== null || count($s['slots']) > 0) {
+            $label = c('halt', 'red');
         } elseif (!empty($hb['stop'])) {
             $label = c('stopped', 'amber');
         } else {
