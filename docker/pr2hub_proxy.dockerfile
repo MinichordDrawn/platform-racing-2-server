@@ -3,6 +3,17 @@ FROM golang:1.22-alpine AS build
 WORKDIR /src/pr2hub_proxy
 COPY pr2hub_proxy/go.mod ./
 COPY pr2hub_proxy/*.go ./
+
+# The tests run here, before the binary is built, so a proxy whose gate does
+# not stop when the ring says stop cannot be produced at all. This is the only
+# place they are reachable in a deployment: there is no Go toolchain on the
+# host and the PHP suite cannot run them, so a build that skipped them would
+# leave gate.go checked by nothing.
+#
+# It needs no network -- the module has no dependencies outside the standard
+# library, which is also why it is the whole of this stage.
+RUN go vet ./... && go test ./...
+
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/pr2hub-proxy .
 
 FROM alpine:3.20

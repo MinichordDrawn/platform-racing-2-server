@@ -53,14 +53,17 @@ fail=0
 echo "proving the store write matrix"
 echo
 
-# cron is here as a reader. It holds no observer and writes nothing into the
-# tree, but it runs work, and work reads the tree before it works -- so the
-# tree is mounted in it and it is held to the matrix from the other side:
-# every path read-only, no exceptions. It is also the one container that runs
-# as root, which makes the result worth having rather than assuming: a
-# read-only mount is refused by the kernel whoever asks, and this is where that
-# stops being a claim.
-for svc in web multi policy super cron; do
+# cron and pr2hub-proxy are here as readers. Neither holds an observer and
+# neither writes anything into the tree, but both read it before they work --
+# so the tree is mounted in them and they are held to the matrix from the other
+# side: every path read-only, no exceptions.
+#
+# cron is also the one container that runs as root, which makes its result
+# worth having rather than assuming: a read-only mount is refused by the kernel
+# whoever asks, and this is where that stops being a claim. pr2hub-proxy is the
+# one container whose reader is not written in PHP, so its result is also the
+# only proof that the Go gate is reading a tree it cannot alter.
+for svc in web multi policy super cron pr2hub-proxy; do
     echo "  $svc"
 
     # One container per service rather than one per path: forty-two containers

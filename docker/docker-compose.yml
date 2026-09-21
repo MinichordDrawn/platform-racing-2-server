@@ -178,8 +178,46 @@ services:
       - ALL
     environment:
       - PROXY_UPSTREAM_BASE=https://pr2hub.com
+      # The gate. This container serves a route on the game's own origin --
+      # Apache maps /pr2hub/ here with ProxyPass, so mod_proxy answers it and
+      # PHP never runs, which is why the gate in config.php never covered it.
+      # It reads the store itself instead. See pr2hub_proxy/gate.go.
+      #
+      # There is no OBSERVER_LOCAL because this container holds no observer and
+      # is no member of the ring: what it reads is the super observer's
+      # heartbeat and every member's stop signals, none of which it can write.
+      # Nothing here watches this container in turn, which is the same gap the
+      # scheduler has and is named in the same way.
+      - OBSERVER_STORES=/stores
+      - OBSERVER_SUPER_MAX_AGE_SECONDS=20
     volumes:
       - pr2hub-proxy-cache:/cache
+      # The store tree, read-only in every path -- the whole tree and not only
+      # the paths the gate reads, so that what this container may write is a
+      # question the kernel answers everywhere rather than in the places
+      # somebody remembered to mount. verify-stores.sh probes all seventeen and
+      # expects `ro` from this service at every one of them.
+      #   multi
+      - store-multi:/stores/multi:ro
+      - multi-copy:/stores/multi/copy:ro
+      - multi-copy-super:/stores/multi/copy-super:ro
+      - multi-halts:/stores/multi/halts:ro
+      #   policy
+      - store-policy:/stores/policy:ro
+      - policy-copy:/stores/policy/copy:ro
+      - policy-copy-super:/stores/policy/copy-super:ro
+      - policy-halts:/stores/policy/halts:ro
+      #   super
+      - store-super:/stores/super:ro
+      - super-copy-multi:/stores/super/copy-multi:ro
+      - super-copy-policy:/stores/super/copy-policy:ro
+      - super-copy-web:/stores/super/copy-web:ro
+      - super-halts:/stores/super/halts:ro
+      #   web
+      - store-web:/stores/web:ro
+      - web-copy:/stores/web/copy:ro
+      - web-copy-super:/stores/web/copy-super:ro
+      - web-halts:/stores/web/halts:ro
 
   multi:
     build:

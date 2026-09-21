@@ -170,10 +170,23 @@ type config struct {
 	SearchTTL          time.Duration
 	LevelTTL           time.Duration
 	LevelDataTTL       time.Duration
+
+	// What the observer network is asked, before anything here serves. See
+	// gate.go. An unusable setting is carried rather than fatal, so a
+	// misconfigured proxy refuses every request with a reason in the log
+	// instead of becoming a container that will not start.
+	GateStores      string
+	GateSuperMaxAge time.Duration
+	GateSettingsErr string
 }
 
 func loadConfig() config {
+	gate, gateErr := gateSettingsFrom(os.Getenv)
+
 	return config{
+		GateStores:         gate.GateStores,
+		GateSuperMaxAge:    gate.GateSuperMaxAge,
+		GateSettingsErr:    gateErr,
 		ListenAddr:         envOr("PROXY_LISTEN_ADDR", ":8080"),
 		CacheDir:           envOr("PROXY_CACHE_DIR", "/cache"),
 		UpstreamBase:       strings.TrimRight(envOr("PROXY_UPSTREAM_BASE", "https://pr2hub.com"), "/"),
@@ -232,10 +245,15 @@ type proxyRoute struct {
 	NormalizedKey string
 }
 
+// Liveness is answered in ServeHTTP, ahead of the gate, and so is not a route
+// here: a path that is served while the deployment is stopped is not one of
+// the ways in that the gate is there to close.
+const healthzPath = "/healthz"
+
+var healthzRoute = &proxyRoute{RouteLabel: "healthz"}
+
 func buildRoute(r *http.Request, cfg config) (*proxyRoute, error) {
 	switch {
-	case r.Method == http.MethodGet && r.URL.Path == "/healthz":
-		return &proxyRoute{RouteLabel: "healthz"}, nil
 	case strings.HasPrefix(r.URL.Path, "/files/lists/"):
 		return buildListRoute(r, cfg)
 	case r.URL.Path == "/search_levels.php":
@@ -346,10 +364,15 @@ func buildSearchRoute(r *http.Request, cfg config) (*proxyRoute, error) {
 		}
 	}
 
+	// Whatever survived the allowlist, and nothing else. There used to be a
+	// fallback to the raw body here for the case where nothing survived, which
+	// made the drop above conditional on the form carrying something other than
+	// a token: a body of nothing but `token` fell through to the raw bytes, and
+	// those bytes then became the upstream body and the cache key. An empty
+	// search is a real request with no criteria, so the empty encoding is the
+	// honest key for it, and every such request shares the one cache entry
+	// because upstream they are the same request.
 	encoded := normalized.Encode()
-	if encoded == "" {
-		encoded = string(body)
-	}
 
 	return &proxyRoute{
 		Kind:          routeKindSearch,
@@ -636,23 +659,35 @@ func newServer(cfg config) *server {
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	route, err := buildRoute(r, s.cfg)
-	if err != nil {
-		s.respondRouteError(w, r, start, routeLabelFromErrRoute(route), err)
-		return
-	}
-
-	if route.RouteLabel == "healthz" {
+	// Liveness first, because it is the one thing here that stays true while
+	// the ring says stop: it reads no cache, makes no upstream call and
+	// reports only that this process is running. Something has to be able to
+	// tell a stopped proxy from a dead one.
+	if r.Method == http.MethodGet && r.URL.Path == healthzPath {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
-		s.logRequest(r, route.RouteLabel, "BYPASS", http.StatusOK, 0, start, nil)
+		s.logRequest(r, healthzRoute, "BYPASS", http.StatusOK, 0, start, nil)
+		return
+	}
+
+	// Then the observer network, before the route is parsed and before a byte
+	// of the request body is read. A halted deployment answers one way on
+	// every path, and says nothing about which path was asked for.
+	if reason := s.gateReason(time.Now()); reason != "" {
+		s.refuseForGate(w, r, reason, start)
+		return
+	}
+
+	route, err := buildRoute(r, s.cfg)
+	if err != nil {
+		s.respondRouteError(w, r, start, route, err)
 		return
 	}
 
 	if !s.allowRequest(clientIP(r), route, start) {
 		http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
-		s.logRequest(r, route.RouteLabel, "REJECTED", http.StatusTooManyRequests, 0, start, nil)
+		s.logRequest(r, route, "REJECTED", http.StatusTooManyRequests, 0, start, nil)
 		return
 	}
 
@@ -660,13 +695,13 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cached, cachedFound, err := s.cache.Get(route.Kind, route.CacheKey)
 	if err != nil {
 		http.Error(w, "cache read failed", http.StatusInternalServerError)
-		s.logRequest(r, route.RouteLabel, "ERROR", http.StatusInternalServerError, 0, start, err)
+		s.logRequest(r, route, "ERROR", http.StatusInternalServerError, 0, start, err)
 		return
 	}
 
 	if cachedFound && cached.IsFresh(now) {
 		s.writeCachedResponse(w, cached, "HIT", route.CacheKey, 0)
-		s.logRequest(r, route.RouteLabel, "HIT", cached.StatusCode, 0, start, nil)
+		s.logRequest(r, route, "HIT", cached.StatusCode, 0, start, nil)
 		return
 	}
 
@@ -676,14 +711,14 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if fetchErr == nil {
 		s.writeCachedResponse(w, result.Entry, "MISS", route.CacheKey, result.UpstreamStatus)
-		s.logRequest(r, route.RouteLabel, "MISS", result.Entry.StatusCode, result.UpstreamStatus, start, nil)
+		s.logRequest(r, route, "MISS", result.Entry.StatusCode, result.UpstreamStatus, start, nil)
 		return
 	}
 
 	if cachedFound && route.AllowStale && allowsStaleFallback(fetchErr) {
 		upstreamStatus := extractUpstreamStatus(fetchErr)
 		s.writeCachedResponse(w, cached, "STALE", route.CacheKey, upstreamStatus)
-		s.logRequest(r, route.RouteLabel, "STALE", cached.StatusCode, upstreamStatus, start, fetchErr)
+		s.logRequest(r, route, "STALE", cached.StatusCode, upstreamStatus, start, fetchErr)
 		return
 	}
 
@@ -691,7 +726,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = s.cache.Delete(route.Kind, route.CacheKey)
 	}
 
-	s.respondUpstreamError(w, r, route.RouteLabel, fetchErr, start)
+	s.respondUpstreamError(w, r, route, fetchErr, start)
 }
 
 func routeLabelFromErrRoute(route *proxyRoute) string {
@@ -699,6 +734,43 @@ func routeLabelFromErrRoute(route *proxyRoute) string {
 		return "unknown"
 	}
 	return route.RouteLabel
+}
+
+// What the deployment is asked before it serves.
+//
+// Returns the empty string if the proxy may work, or a short reason if it may
+// not. Settings that do not say what the window is are themselves a reason:
+// there is no window to fall back on, and serving on an unstated one would be
+// this code deciding how long it may run unobserved.
+func (s *server) gateReason(now time.Time) string {
+	if s.cfg.GateSettingsErr != "" {
+		return s.cfg.GateSettingsErr
+	}
+	return gateReason(s.cfg, now)
+}
+
+// How a refusal reaches whoever asked.
+//
+// Byte for byte what config.php's gate returns, because it is not a similar
+// refusal, it is the same refusal arriving through a different door: a client
+// that learns what a stopped deployment looks like should not have to learn it
+// twice. Whoever asked is told nothing; whoever runs it gets the reason in the
+// log.
+func (s *server) refuseForGate(w http.ResponseWriter, r *http.Request, reason string, start time.Time) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Retry-After", "30")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	_, _ = w.Write([]byte("The server is not running.\n"))
+
+	log.Printf("observer gate: refusing to work. %s", reason)
+	s.logRequest(r, nil, "HALTED", http.StatusServiceUnavailable, 0, start, nil)
+}
+
+func normalizedKeyFromRoute(route *proxyRoute) string {
+	if route == nil {
+		return ""
+	}
+	return route.NormalizedKey
 }
 
 func (s *server) allowRequest(ip string, route *proxyRoute, now time.Time) bool {
@@ -818,18 +890,18 @@ func extractUpstreamStatus(err error) int {
 	return 0
 }
 
-func (s *server) respondRouteError(w http.ResponseWriter, r *http.Request, start time.Time, routeLabel string, err error) {
+func (s *server) respondRouteError(w http.ResponseWriter, r *http.Request, start time.Time, route *proxyRoute, err error) {
 	var httpErr *httpError
 	if errors.As(err, &httpErr) {
 		http.Error(w, httpErr.Message, httpErr.Status)
-		s.logRequest(r, routeLabel, "REJECTED", httpErr.Status, 0, start, err)
+		s.logRequest(r, route, "REJECTED", httpErr.Status, 0, start, err)
 		return
 	}
 	http.Error(w, "request rejected", http.StatusBadRequest)
-	s.logRequest(r, routeLabel, "REJECTED", http.StatusBadRequest, 0, start, err)
+	s.logRequest(r, route, "REJECTED", http.StatusBadRequest, 0, start, err)
 }
 
-func (s *server) respondUpstreamError(w http.ResponseWriter, r *http.Request, routeLabel string, err error, start time.Time) {
+func (s *server) respondUpstreamError(w http.ResponseWriter, r *http.Request, route *proxyRoute, err error, start time.Time) {
 	var upErr *upstreamError
 	if errors.As(err, &upErr) {
 		status := upErr.StatusCode
@@ -856,21 +928,36 @@ func (s *server) respondUpstreamError(w http.ResponseWriter, r *http.Request, ro
 			_, _ = w.Write([]byte("upstream request failed"))
 		}
 
-		s.logRequest(r, routeLabel, "ERROR", status, upErr.StatusCode, start, upErr.Err)
+		s.logRequest(r, route, "ERROR", status, upErr.StatusCode, start, upErr.Err)
 		return
 	}
 
 	http.Error(w, "upstream request failed", http.StatusBadGateway)
-	s.logRequest(r, routeLabel, "ERROR", http.StatusBadGateway, 0, start, err)
+	s.logRequest(r, route, "ERROR", http.StatusBadGateway, 0, start, err)
 }
 
-func (s *server) logRequest(r *http.Request, routeLabel, cacheStatus string, statusCode int, upstreamStatus int, start time.Time, reqErr error) {
+func (s *server) logRequest(r *http.Request, route *proxyRoute, cacheStatus string, statusCode int, upstreamStatus int, start time.Time, reqErr error) {
+	// The path and the normalised key, never the request as it arrived.
+	//
+	// Every GET route here allows a `token` query parameter, and `token` is the
+	// session credential this package sets at login. Logging the request URI
+	// wrote a live one into the container log on every request -- the same
+	// disclosure the route builders are careful to keep out of the upstream
+	// body and the cache key, arriving at a different destination.
+	//
+	// What replaces it is the value the route builder already produced: the
+	// normalised key holds exactly the fields that survived the allowlist, so
+	// it cannot carry a credential without the upstream body carrying one too.
+	// The path is quoted because it is percent-decoded by the time it gets
+	// here, and an encoded newline in it would otherwise let a stranger write
+	// lines of their own into the log.
 	duration := time.Since(start).Milliseconds()
 	line := fmt.Sprintf(
-		"%s %s route=%s cache=%s status=%d upstream=%d ip=%s duration_ms=%d",
+		"%s %q key=%q route=%s cache=%s status=%d upstream=%d ip=%s duration_ms=%d",
 		r.Method,
-		r.URL.RequestURI(),
-		routeLabel,
+		r.URL.Path,
+		normalizedKeyFromRoute(route),
+		routeLabelFromErrRoute(route),
 		cacheStatus,
 		statusCode,
 		upstreamStatus,
