@@ -32,10 +32,17 @@ function begin_loadup($server_id)
 
 function configure_server($server)
 {
-    global $port, $server_name, $uptime, $server_expire_time, $guild_id, $guild_owner, $is_ps;
+    global $server_name, $uptime, $server_expire_time, $guild_id, $guild_owner, $is_ps;
+
+    // The port is not taken from the row any more.
+    //
+    // It used to be, and it was the value the listener bound, so a table
+    // decided where this server answered while the compose file, the image and
+    // the observer's column all declared it somewhere none of them could
+    // change. The row still carries a port, because that is what the web tier
+    // hands to clients, but it no longer moves the listener.
 
     // server information
-    $port = (int) $server->port;
     $server_name = $server->server_name;
     $server_expire_time = (int) $server->expire_time;
     $guild_id = (int) $server->guild_id;

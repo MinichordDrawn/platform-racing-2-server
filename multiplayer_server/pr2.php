@@ -84,7 +84,34 @@ try {
 // server info
 $server_id = (int) $argv[1];
 $verbose = $argc > 2 && strtolower($argv[2]) === 'true';
-$port = 9159;
+
+// Where the player port is. Declared, not looked up.
+//
+// This used to be a hard-coded 9159 that never took effect, because the
+// startup loadup overwrote it from the server's own database row, and the row
+// said 9160. So the port the listener bound came from a table, and the three
+// places the deployment states it -- the compose file's publish, the image's
+// expose, and the observer's column asserting something answers there -- were
+// all describing a value none of them could see or set.
+//
+// Anything able to write that row moved the listener, and the only component
+// that noticed was the observer, which reported the declared port as dead.
+// That is how this was found: deferring the loadup during a halt left the
+// stale default bound, and the ring halted on a server listening perfectly
+// well somewhere else.
+//
+// Checked the way the policy server checks its own, and for the same reason: a
+// server listening somewhere unintended is a server that answers nobody, and
+// every client fails closed against it.
+$player_port = getenv('PLAYER_PORT');
+if ($player_port === false
+    || !preg_match('/^\d+$/', $player_port)
+    || (int) $player_port < 1
+    || (int) $player_port > 65535
+) {
+    throw new \Exception('PLAYER_PORT must be set to a port number.');
+}
+$port = (int) $player_port;
 $server_name = 'bob';
 $is_ps = false;
 $guild_id = 0;
@@ -116,7 +143,42 @@ $search_room = new LevelListRoom('search');
 output('Requesting loadup information...');
 $uptime = time();
 
-begin_loadup($server_id);
+// Ask the observer network before touching the database.
+//
+// config.php does not ask on this process's behalf: this is one of the two
+// entrypoints exempt from the refusal that exits, because exiting here ends
+// the container and the observer inside it. The exemption is granted on the
+// grounds that this process carries a continuous check of its own, and that
+// check is the socket daemon's timer, which does not fire until the loop is
+// running. Everything between here and there was happening unasked.
+//
+// That window is three to four seconds and it was not idle. The loadup reads
+// six tables and writes a row saying this server is up and open, which is the
+// row the web tier reads to decide where to send players, so a halted
+// deployment advertised a game server as available. Then both ports bound and
+// admitted whatever arrived.
+//
+// The process still starts and still binds, because the observer beside it
+// asserts that this process is alive and these ports answer, and a server that
+// refused to bind would fault its own container and stop the ring rather than
+// itself. What it does not do while halted is touch the database or serve
+// anybody.
+$gate = \observer_gate_settings();
+PR2SocketServer::$halted = is_string($gate)
+    ? $gate                                  // an environment the gate cannot read
+    : \observer_gate_reason($gate);
+
+if (PR2SocketServer::$halted === null) {
+    begin_loadup($server_id);
+    PR2SocketServer::$loaded = true;
+} else {
+    // Deferred rather than skipped. A server that never loaded cannot serve
+    // when the halt lifts, so the first clear tick does the work this one
+    // postponed, and the startup path and the recovery path stay the same
+    // path.
+    output('--- STOPPED BY THE OBSERVER NETWORK --- ' . PR2SocketServer::$halted);
+    output('--- loadup deferred until the ring is clear ---');
+}
 
 // start the socket server
 output("Starting PR2 server $server_name (ID: #$server_id) on port $port...");

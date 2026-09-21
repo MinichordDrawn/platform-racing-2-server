@@ -684,3 +684,34 @@ function get_level_content($level_id)
     }
     return $level_txt;
 }
+
+
+// Whether a port is one this deployment can hand to a client.
+//
+// The game server binds a port the deployment declares. The database row still
+// carries one, and the row is what the web tier hands out: the status file the
+// game reads to list servers, and the login reply telling a player where to
+// connect. So the two can disagree, and a row holding anything at all used to
+// be cast to an integer and passed on.
+//
+// The casts are what make this worth a function rather than a comparison. An
+// empty string, a number with something after it and a boolean all survive
+// `(int)` and come out as small plausible integers, so a client could be sent
+// to port 0 or to somewhere nothing in this deployment ever binds, and told
+// that is where the game is. Every client then fails to connect, the servers
+// look down to players and fine to the server, and no observer sees anything:
+// the game server is listening exactly where it was told to.
+//
+// Strict about the type as well as the range. A port arrives from a database
+// column, so it is a string of digits or it is not a port.
+function is_usable_port($value)
+{
+    if (is_int($value)) {
+        return $value >= 1 && $value <= 65535;
+    }
+    if (!is_string($value) || preg_match('/^\d+$/', $value) !== 1) {
+        return false;
+    }
+    $n = (int) $value;
+    return $n >= 1 && $n <= 65535;
+}

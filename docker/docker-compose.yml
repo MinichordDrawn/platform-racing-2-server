@@ -208,6 +208,11 @@ services:
       # super observer, and stops working if either is not alive or anything
       # anywhere has halted. A missing or stale heartbeat counts as halted.
       - OBSERVER_STORES=/stores
+      # Where the game server binds its player port. It used to come from the
+      # server's own row in the database, so a table decided where this
+      # container answered, while the publish below, the image and the
+      # observer's column all declared it somewhere none of them could set.
+      - PLAYER_PORT=9160
       - OBSERVER_LOCAL=multi
       - OBSERVER_LOCAL_MAX_AGE_SECONDS=8
       - OBSERVER_SUPER_MAX_AGE_SECONDS=20

@@ -101,6 +101,19 @@ function write_server_status($pdo)
     $servers = servers_select($pdo);
     $displays = array();
     foreach ($servers as $server) {
+        // A server whose row does not carry a usable port is left out.
+        //
+        // This file is what the game reads to list servers, so publishing an
+        // entry means directing players at it. A port that cannot be vouched
+        // for is somewhere they will fail to connect, and the failure looks
+        // like the server being down while the server itself is listening
+        // perfectly well wherever it was told to bind. Omitting it is the only
+        // answer that does not send anybody somewhere wrong.
+        if (!is_usable_port($server->port)) {
+            output("Skipping $server->server_name (ID #$server->server_id): its row does not carry a usable port.");
+            continue;
+        }
+
         $display = new stdClass();
         output("Writing status for $server->server_name (ID #$server->server_id)...");
         $display->server_id = (int) $server->server_id;

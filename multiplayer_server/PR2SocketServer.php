@@ -19,6 +19,15 @@ class PR2SocketServer extends \chabot\SocketServer
     // is about the container and not about a connection.
     public static $halted = null;
 
+    // Whether the startup loadup has been done.
+    //
+    // It reads six tables and writes a row saying this server is up, so it
+    // does not happen while the ring says stop. A server that skipped it
+    // outright could not serve when the halt lifted, so it is deferred to the
+    // first clear tick instead, which keeps the startup path and the recovery
+    // path the same path.
+    public static $loaded = false;
+
     // once every 2 seconds
     public function onTimer()
     {
@@ -53,6 +62,19 @@ class PR2SocketServer extends \chabot\SocketServer
         }
         if ($was !== null) {
             output('--- the observer network is clear, working again ---');
+        }
+
+        // The work a halt at startup postponed.
+        //
+        // Every sweep below reads state this builds, so it has to come first,
+        // and it has to come after the gate check above: loading up during a
+        // halt is the thing being prevented. A server that came up while the
+        // ring said stop reaches this on the first clear tick.
+        if (!self::$loaded) {
+            global $server_id;
+            \begin_loadup($server_id);
+            self::$loaded = true;
+            output('--- loaded up ---');
         }
 
         TemporaryItems::removeExpired();

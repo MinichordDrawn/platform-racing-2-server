@@ -97,6 +97,23 @@ try {
         throw new Exception('This server is currently unavailable. Please choose a different one.');
     }
 
+    // sanity: can we vouch for where we would send them?
+    //
+    // The game server binds a port the deployment declares; this row is a
+    // separate statement of the same fact, and it is the one the player is
+    // answered with. Handing over a port that is not a port sends them
+    // somewhere they will fail to connect, and the failure is indistinguishable
+    // to them from the game being down. Refusing here is checked with the other
+    // questions about the server, before any account work, so that nobody has
+    // their password verified only to be sent nowhere.
+    if (!is_usable_port($server->port)) {
+        error_log(
+            'login: refusing server ' . (int) $server->server_id
+            . ' because its row does not carry a usable port.'
+        );
+        throw new Exception('This server is currently unavailable. Please choose a different one.');
+    }
+
     // guest login
     if (strtolower(trim($login->user_name)) === 'guest' && $user_pass === '') {
         $guest_login = true;
