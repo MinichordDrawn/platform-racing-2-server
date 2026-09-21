@@ -353,6 +353,7 @@ function run_cycle(array $config): array
         $checks[] = 'trace-fresh:' . $s['schedule'];
         $checks[] = 'trace-complete:' . $s['schedule'];
         $checks[] = 'trace-coverage:' . $s['schedule'];
+        $checks[] = 'trace-effect:' . $s['schedule'];
     }
     // This observer's own column: what its container is and must still be.
     foreach (container_local_checks() as $id) {

@@ -227,6 +227,36 @@ function check_traces(Reader $R, string $traces_root, array $schedules, int $obs
             if ($have !== $want) {
                 $R->fail('trace-coverage', $name, 'the completed task set is not the declared set');
             }
+
+            // T3b. A task that must change rows did.
+            //
+            // The three checks above are satisfied by a job that runs. None of
+            // them asks whether running achieved anything, and the record that
+            // would say is written on every task and was read by nothing: the
+            // affected-row count of its query.
+            //
+            // A minimum is declared only where a zero has one reading. For the
+            // cleanup tasks it has two -- a delete-old that found nothing old
+            // enough had a quiet day -- and a check that cannot tell those
+            // apart would fault on quiet days, which is how a deployment
+            // learns to ignore halts. See SCHEDULE_MIN_COUNTS.
+            //
+            // A declared task reporting no count at all fails too. It did not
+            // run its query, whatever else it did.
+            foreach ($done['tasks'] as $task) {
+                $minimum = $s['min_counts'][$task['id']] ?? null;
+                if ($minimum === null) {
+                    continue;
+                }
+                $count = $task['count'] ?? null;
+                if (!is_int($count)) {
+                    $R->fail('trace-effect', $name,
+                        $task['id'] . ' reported no affected-row count');
+                } elseif ($count < $minimum) {
+                    $R->fail('trace-effect', $name,
+                        $task['id'] . ' changed ' . $count . ' rows, and changes every row it can reach');
+                }
+            }
         }
     }
 }

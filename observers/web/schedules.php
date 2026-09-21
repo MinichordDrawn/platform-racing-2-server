@@ -89,6 +89,45 @@ const SCHEDULE_DECLARED = array(
     ),
 );
 
+// The tasks whose affected-row count must not be zero, and only those.
+//
+// Every task records the affected-row count of its query, and for most of
+// these the honest answer is that zero means nothing. The daily job is mostly
+// cleanup: a delete-old that found nothing old enough had a quiet day, not a
+// broken one. Declaring a minimum for those would fault on the first quiet
+// Sunday, and a halt that fires on quiet Sundays teaches a deployment to
+// ignore halts -- which costs more than the check is worth.
+//
+// Two are different in kind, and the difference is in the SQL rather than in
+// anyone's judgement:
+//
+//   guilds_reset_gp_today   UPDATE guilds SET gp_today = 0
+//   gp_reset                UPDATE gp     SET gp_today = 0
+//
+// Neither carries a WHERE clause, so each touches every row of its table on
+// every run. A zero from one of them cannot mean "nothing needed doing"; it
+// means the table is empty. This deployment has guilds with members in them,
+// so a zero is the job not doing what it says, or the table being gone.
+//
+// Everything absent from this list is unchecked on purpose, and stays that way
+// until somebody who knows the game can say what its zero would mean. An
+// expectation nobody can justify is worse than none, because it is the one
+// that gets ignored.
+//
+// **This list says something about this game, not about this code.** A freshly
+// migrated deployment has no guilds, so its first daily run would change zero
+// rows here and halt the ring -- correctly, by the letter, and uselessly. A
+// deployment that is not the live game removes these two entries.
+const SCHEDULE_MIN_COUNTS = array(
+    'minute' => array(),
+    'hourly' => array(),
+    'daily'  => array(
+        'guilds_reset_gp_today' => 1,
+        'gp_reset'              => 1,
+    ),
+    'weekly' => array(),
+);
+
 // In the shape check_traces() expects.
 function schedules_config(): array
 {
@@ -100,6 +139,7 @@ function schedules_config(): array
             'margin_seconds'   => SCHEDULE_MARGINS[$name],
             'deadline_seconds' => SCHEDULE_DEADLINES[$name],
             'declared'         => SCHEDULE_DECLARED[$name],
+            'min_counts'       => SCHEDULE_MIN_COUNTS[$name],
         );
     }
     return $out;

@@ -38,6 +38,11 @@ require_once REPO . '/observers/web/schedules.php';
 
 echo "a halted run still leaves a trace\n";
 
+// The stand-in returns 1 rather than 0 because the count now means
+// something: two daily tasks change every row of their table on every run,
+// so a zero from those is a finding (SCHEDULE_MIN_COUNTS). These runs are
+// meant to be healthy ones, and a healthy run of those tasks changed rows.
+
 function t81_rm($dir)
 {
     if (!is_dir($dir)) {
@@ -143,7 +148,7 @@ $declared = \pr2obs\web\SCHEDULE_DECLARED['daily'];
 
 $trace = trace_begin('daily');
 foreach ($declared as $id) {
-    trace_task($trace, $id, function () { return 0; });
+    trace_task($trace, $id, function () { return 1; });
 }
 trace_finish($trace);
 
@@ -160,7 +165,7 @@ foreach ($declared as $id) {
     if ($id === 'tokens_delete_old') {
         continue;
     }
-    trace_task($trace, $id, function () { return 0; });
+    trace_task($trace, $id, function () { return 1; });
 }
 trace_finish($trace);
 trace_halted('daily', 'web has halted');

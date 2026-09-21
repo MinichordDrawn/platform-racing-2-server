@@ -105,6 +105,7 @@ function local_check_identifiers(): array
         'trace-fresh',
         'trace-complete',
         'trace-coverage',
+        'trace-effect',
         'postcondition',
     );
     // Everything this observer asserts about its own container: the code

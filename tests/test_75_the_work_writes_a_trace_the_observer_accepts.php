@@ -31,6 +31,11 @@ require_once REPO . '/observers/web/schedules.php';
 
 echo "the work writes a trace the observer accepts\n";
 
+// The stand-in returns 1 rather than 0 because the count now means
+// something: two daily tasks change every row of their table on every run,
+// so a zero from those is a finding (SCHEDULE_MIN_COUNTS). These runs are
+// meant to be healthy ones, and a healthy run of those tasks changed rows.
+
 function t75_rm($dir)
 {
     if (!is_dir($dir)) {
@@ -100,7 +105,7 @@ ok(count($declared) === 9, 'the daily schedule declares nine tasks');
 $trace = trace_begin('daily');
 ok(is_array($trace), 'the work can begin a trace');
 foreach ($declared as $id) {
-    trace_task($trace, $id, function () { return 0; });
+    trace_task($trace, $id, function () { return 1; });
 }
 trace_finish($trace);
 
@@ -129,7 +134,7 @@ is_same(json_decode(end($lines), true)['kind'], 'finish', 'and the last is the f
 $trace = trace_begin('daily');
 $threw = false;
 try {
-    trace_task($trace, $declared[0], function () { return 0; });
+    trace_task($trace, $declared[0], function () { return 1; });
     trace_task($trace, $declared[1], function () { throw new RuntimeException('the database went away'); });
     trace_finish($trace);
 } catch (\Throwable $e) {
@@ -159,7 +164,7 @@ foreach ($declared as $id) {
     if ($id === 'tokens_delete_old') {
         continue;          // as if the line had been commented out
     }
-    trace_task($trace, $id, function () { return 0; });
+    trace_task($trace, $id, function () { return 1; });
 }
 trace_finish($trace);
 
@@ -264,7 +269,7 @@ foreach (\pr2obs\web\SCHEDULE_DECLARED as $schedule => $ids) {
 // the single-writer rule: nobody prunes anybody else's.
 for ($i = 0; $i < 12; $i++) {
     $t = trace_begin('minute');
-    trace_task($t, 'generate_level_list:newest', function () { return 0; });
+    trace_task($t, 'generate_level_list:newest', function () { return 1; });
     trace_finish($t);
 }
 $kept = array_values(array_filter(scandir("$tmp/traces/minute"), function ($n) {
