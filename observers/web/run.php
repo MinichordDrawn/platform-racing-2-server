@@ -151,6 +151,9 @@ $state = array(
     'booted'      => true,
     'started'     => gmdate('Y-m-d\TH:i:s\Z'),
     'unchanged'   => array(),
+    // Set by apply_cycle when a published file reads back differently from
+    // what was written, and read by the next cycle's writability answer.
+    'publish_differed' => false,
     'last_observed' => array(),
     // Resolved to a real stream here rather than left as null meaning "the
     // default". null is the one value `??` treats as absent, so `$x ?? false`
@@ -235,6 +238,16 @@ while (true) {
     // rather than discovering it at publication is what lets this cycle act
     // on the answer instead of the next one inheriting it.
     $writable = own_store_writable_at($stores, $identity);
+    $writable_detail = 'the heartbeat folder cannot be written';
+
+    // The other half of the same assertion, carried from the publication that
+    // found it. A re-read that differed is discovered in apply_cycle, after
+    // this cycle's halt was already chosen, so it cannot reach that decision;
+    // it reaches this one. See the note in apply.php.
+    if ($writable && !empty($state['publish_differed'])) {
+        $writable = false;
+        $writable_detail = 'a published file read back differently from what was written';
+    }
 
     $plan = run_cycle(array(
         'stores'          => $state['stores'],
@@ -246,6 +259,7 @@ while (true) {
         'cadence_seconds' => $state['params']['cadence_seconds'],
         'unchanged'       => $state['unchanged'] ?? array(),
         'own_store_writable' => $writable,
+        'own_store_writable_detail' => $writable_detail,
         'container_baseline' => $container_baseline,
         'work_due'        => $work_seen || (time() - $process_started) >= $work_grace,
         'traces_root'     => $traces,

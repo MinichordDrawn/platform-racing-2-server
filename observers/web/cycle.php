@@ -237,7 +237,12 @@ function run_cycle(array $config): array
     // passed in. A fixture is a read-only snapshot and cannot express it,
     // which the fixture set says outright. Absent means not probed.
     if (array_key_exists('own_store_writable', $config) && $config['own_store_writable'] === false) {
-        $R->fail('own-store-writable', null, 'the heartbeat folder cannot be written');
+        // One identifier, two conditions: a store that refused the write, and
+        // a store that took it and gave back something else. The caller says
+        // which, because a fault file naming the wrong one is a false account.
+        $R->fail('own-store-writable', null, isset($config['own_store_writable_detail'])
+            ? $config['own_store_writable_detail']
+            : 'the heartbeat folder cannot be written');
     }
     check_store_root($R, $R->identity);
     invariant_5($R);

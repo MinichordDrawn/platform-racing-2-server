@@ -249,26 +249,33 @@ function apply_cycle(array &$state, array $plan): void
             // exists to detect one cycle later, happening now, in the one
             // place with both values in hand.
             //
-            // This used to be a line in the log and a claim that the next
-            // cycle's writability probe would turn it into a finding. It would
-            // not. The probe establishes that the store can be written, which
-            // it plainly can, and says nothing about whether the bytes that
-            // came back are the bytes that went in. So an observer published
-            // one thing, read back another, chained the next heartbeat onto
-            // what it read, and nothing ever stopped.
+            // **It is recorded, not raised here.** Raising it here was the
+            // first attempt and it did nothing: `$plan` arrives by value and
+            // `run_cycle` has already chosen the halt from its own findings,
+            // so the appended entry reached the fault file and no further. A
+            // fault with no halt stops the gate readers and tells no peer, the
+            // clear branch runs in the same cycle, and the next cycle lifts
+            // it. A stop that lifts itself is not a stop.
+            //
+            // A publication is discovered after the cycle that planned it, so
+            // it cannot reach that cycle's decision at all. It reaches the next
+            // one through the input the design already routes this way: the
+            // writability answer, which run.php obtains before the cycle so
+            // that the cycle can act on it.
             //
             // The re-read hash is still what goes into memory, because that is
             // what every other reader will compute and holding the intended
             // one would make this observer the only member reading a value
             // nobody else can see.
-            $plan['findings'][] = array(
-                'check'   => 'own-store-writable',
-                'subject' => null,
-                'detail'  => 'a published file read back differently from what was written',
-            );
+            $state['publish_differed'] = true;
             log_line($state['log'] ?? false, 'publish-differs', array(
                 'observer' => $identity, 'sequence' => $seq, 'path' => $hb_rel,
             ));
+        } else {
+            // A publication that did land clears it. Without this the first
+            // difference would stop the observer for good, and the condition
+            // is one a store can recover from.
+            $state['publish_differed'] = false;
         }
     }
 
