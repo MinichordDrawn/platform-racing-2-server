@@ -346,6 +346,76 @@ function procedure_c(Reader $R, string $folder, string $author): array
 }
 
 
+// Is this observer's store still its own?
+//
+// The judgement, with the stat left to the caller so that it can be asked
+// without a filesystem. Two different failures, and the reason says which:
+// an owner that is not this process is a volume that came back wrong, and a
+// mode that lets group or other write is a permission that was widened.
+//
+// Returns null when the directory is this observer's alone, or a short reason.
+function own_store_private(int $owner, int $me, int $mode): ?string
+{
+    if ($owner !== $me) {
+        return 'owned by ' . $owner . ' rather than by this observer';
+    }
+    if (($mode & 0022) !== 0) {
+        return 'writable by somebody other than this observer';
+    }
+    return null;
+}
+
+
+// The same, asked of every path in this observer's own store tree.
+//
+// The work beside this observer runs as a different user, and that separation
+// is made when the image is built: the store belongs to the observer's user,
+// so the work can read it and not write it. Nothing noticed if that stopped
+// being true -- a volume recreated from an image whose ownership had drifted
+// would come back writable by the work, and `own-store-writable` would still
+// pass, because the observer could still write it. The question nobody asked
+// was whether anyone *else* could.
+//
+// Every entry, not just the root: the heartbeat folder is where a forgery
+// would go, and the halts folder is where this member's peers relay to it.
+//
+// Returns null if the whole tree is this observer's alone, or the first path
+// that is not, with the reason.
+function own_store_private_at(string $stores, string $identity): ?string
+{
+    $root = join_path(rtrim(str_replace(chr(92), '/', $stores), '/'), $identity);
+    if (!is_dir($root)) {
+        return $identity . ': the store is not there';
+    }
+
+    $me = posix_geteuid();
+    $stack = array($root);
+
+    while ($stack) {
+        $dir = array_pop($stack);
+
+        $owner = @fileowner($dir);
+        $perms = @fileperms($dir);
+        if ($owner === false || $perms === false) {
+            return substr($dir, strlen($root) - strlen($identity)) . ': cannot be examined';
+        }
+
+        $why = own_store_private($owner, $me, $perms & 0777);
+        if ($why !== null) {
+            return substr($dir, strlen($root) - strlen($identity)) . ': ' . $why;
+        }
+
+        foreach (@scandir($dir) ?: array() as $e) {
+            if ($e !== '.' && $e !== '..' && is_dir($dir . '/' . $e)) {
+                $stack[] = $dir . '/' . $e;
+            }
+        }
+    }
+
+    return null;
+}
+
+
 // SPEC 13.3: the own store is proved writable by creating and removing a
 // staging file in the observer's own heartbeat folder. The publication a few
 // steps later would also prove it, but only after the fact -- and a finding

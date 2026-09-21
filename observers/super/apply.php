@@ -99,6 +99,7 @@ function local_check_identifiers(): array
     $base = array(
         // this observer's own store and process
         'own-store-writable',
+        'own-store-private',
         'halts-readable',
         'cycle-within-cadence',
         // the work on this observer's own host

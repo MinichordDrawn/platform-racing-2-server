@@ -238,6 +238,15 @@ while (true) {
     // rather than discovering it at publication is what lets this cycle act
     // on the answer instead of the next one inheriting it.
     $writable = own_store_writable_at($stores, $identity);
+
+    // And whether it is still only this observer that can write it.
+    //
+    // The work beside this observer runs as a different user, which is what
+    // stops it forging the files published here. That is arranged when the
+    // image is built, and until now nothing noticed if it stopped being
+    // true: a store that came back writable by the work would still pass
+    // own-store-writable, because this observer could still write it.
+    $private = own_store_private_at($stores, $identity);
     $writable_detail = 'the heartbeat folder cannot be written';
 
     // The other half of the same assertion, carried from the publication that
@@ -259,6 +268,7 @@ while (true) {
         'cadence_seconds' => $state['params']['cadence_seconds'],
         'unchanged'       => $state['unchanged'] ?? array(),
         'own_store_writable' => $writable,
+        'own_store_private' => $private,
         'own_store_writable_detail' => $writable_detail,
         'container_baseline' => $container_baseline,
         'work_due'        => $work_seen || (time() - $process_started) >= $work_grace,

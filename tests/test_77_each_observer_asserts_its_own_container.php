@@ -71,10 +71,21 @@ foreach ($observers as $observer) {
 // fails when a declared extension is not loaded. The super observer is covered
 // by test 85 rather than here, because this table assumes a work process and
 // that container has none.
+// `posix` is built into the interpreter rather than installed by a line in the
+// dockerfile, and it is declared anyway. The observer asks it who this process
+// is, in order to check that its own store is still owned by nobody else -- so
+// a check now rests on it, and a check resting on an extension nobody declared
+// is one that disappears quietly the day the extension does. Declaring it means
+// `extensions-declared` faults instead.
+// Extensions the PHP base image compiles in, rather than installing. Named
+// rather than guessed: an extension that is neither installed by the dockerfile
+// nor on this list is a column claiming something nothing provides.
+$built_in = array('posix');
+
 $expected = array(
-    'web'    => array('php' => '8.2', 'ext' => array('pdo_mysql', 'apcu', 'pcntl'),   'proc' => 'apache2'),
-    'multi'  => array('php' => '8.2', 'ext' => array('pdo_mysql', 'sockets', 'pcntl'), 'proc' => 'pr2.php'),
-    'policy' => array('php' => '8.2', 'ext' => array('pdo_mysql', 'sockets', 'pcntl'), 'proc' => 'run_policy.php'),
+    'web'    => array('php' => '8.2', 'ext' => array('pdo_mysql', 'apcu', 'pcntl', 'posix'),    'proc' => 'apache2'),
+    'multi'  => array('php' => '8.2', 'ext' => array('pdo_mysql', 'sockets', 'pcntl', 'posix'), 'proc' => 'pr2.php'),
+    'policy' => array('php' => '8.2', 'ext' => array('pdo_mysql', 'sockets', 'pcntl', 'posix'), 'proc' => 'run_policy.php'),
 );
 
 foreach ($expected as $observer => $want) {
@@ -110,6 +121,14 @@ foreach ($expected as $observer => $want) {
         "and the $observer image really is built on PHP " . $want['php']
     );
     foreach ($want['ext'] as $e) {
+        // A built-in is not installed by a line in the dockerfile, because the
+        // interpreter already has it. It is still declared, so that the
+        // observer's own `extensions-declared` check faults if it ever goes
+        // missing -- which is a stronger proof than this one, made every cycle
+        // inside the real image rather than by reading a file here.
+        if (in_array($e, $built_in, true)) {
+            continue;
+        }
         ok(
             strpos($df, $e) !== false,
             "and really installs $e"

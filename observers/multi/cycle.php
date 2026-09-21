@@ -236,6 +236,12 @@ function run_cycle(array $config): array
     // allowed to write -- run.php, just before this cycle -- and its result
     // passed in. A fixture is a read-only snapshot and cannot express it,
     // which the fixture set says outright. Absent means not probed.
+    // Whether anyone but this observer can write its store. A separate
+    // question from whether this observer can, and the one nothing asked.
+    if (!empty($config['own_store_private'])) {
+        $R->fail('own-store-private', null, $config['own_store_private']);
+    }
+
     if (array_key_exists('own_store_writable', $config) && $config['own_store_writable'] === false) {
         // One identifier, two conditions: a store that refused the write, and
         // a store that took it and gave back something else. The caller says
@@ -331,6 +337,7 @@ function run_cycle(array $config): array
         $checks[] = 'member-fresh:' . $A;
     }
     $checks[] = 'own-store-writable';
+    $checks[] = 'own-store-private';
     $checks[] = 'halts-readable';
     // Raised by every observer and published by none of them until now.
     // cycle-within-cadence is decided below, against the ceiling this
