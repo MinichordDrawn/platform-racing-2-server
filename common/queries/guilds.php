@@ -378,7 +378,30 @@ function guilds_reset_gp_today($pdo)
         throw new Exception('Could not reset all guilds\' gp_today column.');
     }
 
-    return $result;
+    // What this returns is the rows the reset reached, not the rows it
+    // changed, and the difference is the whole reason this comment exists.
+    //
+    // MySQL's affected-row count is rows *changed*. This statement has no
+    // WHERE clause, so it applies to every guild there is -- but on a day when
+    // no guild scored, every gp_today is already 0, nothing changes, and
+    // `exec` returns zero from an update that ran perfectly over the whole
+    // table.
+    //
+    // The observer reads this number against a declared minimum
+    // (SCHEDULE_MIN_COUNTS) in order to establish that the table is not empty,
+    // and it halts the deployment when the minimum is not met. Returning the
+    // changed count therefore halted the whole game on the first quiet day,
+    // which is the failure that check was written to avoid rather than cause.
+    //
+    // With no WHERE clause, the rows reached is the rows the table holds, so
+    // that is what is counted and returned.
+    $reached = $pdo->query('SELECT COUNT(*) FROM guilds')->fetchColumn();
+
+    if ($reached === false) {
+        throw new Exception('Could not count the guilds the reset reached.');
+    }
+
+    return (int) $reached;
 }
 
 

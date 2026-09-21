@@ -26,6 +26,24 @@
 // So the minimum is declared per task, by a person who knows the game, and only
 // where a zero has one reading. Everything undeclared is unchecked, on purpose,
 // and stays that way until somebody can say what its zero would mean.
+//
+// --- what the paragraph above got wrong, and what now holds it up -----------
+//
+// "A zero has one reading" was false when it was written, and it halted a
+// running deployment to prove it. MySQL's affected-row count is the rows a
+// statement *changed*, not the rows it reached. On a day when no guild scored,
+// every gp_today is already 0, so the update runs correctly over every row and
+// reports zero. A quiet day and an empty table were the same number.
+//
+// Worse than a false positive: the halt could not lift itself. The effect check
+// reads the most recent finished run that was not refused, a refused run is
+// skipped, and the job that would write a better run is refused by the halt its
+// own last run caused. One quiet Sunday would have stopped the game until
+// somebody deleted a trace file by hand.
+//
+// Both functions now count the rows they reached and return that. The
+// assertions below hold them to it, because the defect is one `return $result;`
+// away from coming back and nothing else in the tree would notice.
 
 require_once __DIR__ . '/helper.php';
 require_once REPO . '/observers/web/schedules.php';
@@ -160,6 +178,51 @@ foreach (glob(REPO . '/observers/*/cycle.php') as $file) {
     $name = basename(dirname($file));
     ok(strpos(file_get_contents($file), "'trace-effect:'") !== false,
         "$name publishes the check in its heartbeat");
+}
+
+// --- the two declared tasks report rows reached, not rows changed ----------
+//
+// The minimum above is only meaningful if the number it reads counts every row
+// the statement applied to. MySQL reports rows changed, so an update that sets
+// a column to the value it already holds reports zero. These two are the only
+// tasks a minimum is declared for, so these two are the ones that have to
+// count rather than take `exec`'s word for it.
+//
+// Checked at the source because the suite has no database: what is asserted is
+// that each function counts its table and returns that count, and that neither
+// returns the update's own result, which is the shape the defect had.
+
+$reset_functions = array(
+    'guilds_reset_gp_today' => array('common/queries/guilds.php', 'guilds'),
+    'gp_reset'              => array('common/queries/gp.php', 'gp'),
+);
+
+foreach ($reset_functions as $fn => $where) {
+    list($path, $table) = $where;
+    $src = file_get_contents(REPO . '/' . $path);
+
+    $at = strpos($src, "function $fn(");
+    ok($at !== false, "$fn is where it is expected to be");
+    if ($at === false) {
+        continue;
+    }
+
+    // The function body, to its closing brace at column 0.
+    $end  = strpos($src, "\n}", $at);
+    $body = substr($src, $at, $end - $at);
+
+    ok(strpos($body, "UPDATE $table SET gp_today = 0") !== false,
+        "$fn still resets every row of $table");
+
+    ok(strpos($body, "SELECT COUNT(*) FROM $table") !== false,
+        "$fn counts the rows it reached");
+
+    // The defect, named exactly: handing back what the update reported.
+    ok(!preg_match('/return\s+\$result\s*;/', $body),
+        "$fn does not return the update's changed-row count");
+
+    ok(preg_match('/return\s+\(int\)\s*\$reached\s*;/', $body) === 1,
+        "$fn returns the count it took");
 }
 
 t_done();

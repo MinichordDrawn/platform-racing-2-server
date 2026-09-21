@@ -109,6 +109,16 @@ const SCHEDULE_DECLARED = array(
 // means the table is empty. This deployment has guilds with members in them,
 // so a zero is the job not doing what it says, or the table being gone.
 //
+// **That holds only because those two functions report the rows they reached
+// rather than the rows they changed**, and they were changed to do so after
+// this list halted a running deployment. MySQL's affected-row count is rows
+// changed, so on a day when no guild scored, every gp_today is already 0, an
+// update that ran correctly over the whole table returns zero, and the
+// minimum below stops the game. A quiet day and an empty table were
+// indistinguishable, which is precisely the two-readings problem this list
+// exists to avoid. See common/queries/guilds.php and common/queries/gp.php;
+// test 100 holds them to it.
+//
 // Everything absent from this list is unchecked on purpose, and stays that way
 // until somebody who knows the game can say what its zero would mean. An
 // expectation nobody can justify is worse than none, because it is the one

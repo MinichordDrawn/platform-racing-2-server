@@ -33,5 +33,17 @@ function gp_reset($pdo)
         throw new Exception('Could not reset column gp_today.');
     }
 
-    return $result;
+    // The rows reached, not the rows changed. See guilds_reset_gp_today, which
+    // carries the same statement shape and the same reasoning: no WHERE
+    // clause, so this applies to every row, and on a day when nobody earned
+    // any points every gp_today is already 0 and `exec` returns zero from an
+    // update that did exactly what it should. The observer reads this against
+    // a declared minimum and stops the deployment when it is not met.
+    $reached = $pdo->query('SELECT COUNT(*) FROM gp')->fetchColumn();
+
+    if ($reached === false) {
+        throw new Exception('Could not count the gp rows the reset reached.');
+    }
+
+    return (int) $reached;
 }
