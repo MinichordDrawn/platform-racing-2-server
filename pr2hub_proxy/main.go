@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -26,6 +25,17 @@ import (
 const (
 	searchBodyLimit = 8 * 1024
 	defaultTTL      = 2 * time.Minute
+
+	// What this proxy serves, declared here rather than taken from the
+	// upstream's answer.
+	//
+	// Apache maps /pr2hub/ onto the game's own origin, so a Content-Type from
+	// PR2Hub is a claim about this deployment's origin rather than its own,
+	// and every one of the four routes carries a PR2 text format. Repeating
+	// the upstream's header let a third party decide how bytes on this origin
+	// would be interpreted; declaring it means the answer does not depend on
+	// who answered.
+	proxyContentType = "text/plain; charset=utf-8"
 )
 
 var (
@@ -44,7 +54,6 @@ const (
 
 type cacheEntry struct {
 	StatusCode  int       `json:"status_code"`
-	ContentType string    `json:"content_type"`
 	BodyBase64  string    `json:"body_base64"`
 	FetchedAt   time.Time `json:"fetched_at"`
 	ExpiresAt   time.Time `json:"expires_at"`
@@ -165,7 +174,6 @@ type config struct {
 	UpstreamBase       string
 	UserAgent          string
 	Timeout            time.Duration
-	InsecureSkipVerify bool
 	ListTTLs           map[string]time.Duration
 	SearchTTL          time.Duration
 	LevelTTL           time.Duration
@@ -192,7 +200,6 @@ func loadConfig() config {
 		UpstreamBase:       strings.TrimRight(envOr("PROXY_UPSTREAM_BASE", "https://pr2hub.com"), "/"),
 		UserAgent:          envOr("PROXY_USER_AGENT", "trapwork-pr2hub-proxy/1.0"),
 		Timeout:            durationEnvOr("PROXY_TIMEOUT", 10*time.Second),
-		InsecureSkipVerify: boolEnvOr("PROXY_INSECURE_SKIP_VERIFY", false),
 		ListTTLs: map[string]time.Duration{
 			"campaign":  durationEnvOr("PROXY_CAMPAIGN_TTL", 30*time.Minute),
 			"best":      durationEnvOr("PROXY_BEST_TTL", 15*time.Minute),
@@ -222,14 +229,6 @@ func durationEnvOr(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return dur
-}
-
-func boolEnvOr(key string, fallback bool) bool {
-	value := strings.TrimSpace(strings.ToLower(os.Getenv(key)))
-	if value == "" {
-		return fallback
-	}
-	return value == "1" || value == "true" || value == "yes" || value == "on"
 }
 
 type proxyRoute struct {
@@ -517,10 +516,9 @@ func (e *httpError) Error() string {
 }
 
 type upstreamError struct {
-	StatusCode  int
-	ContentType string
-	Body        []byte
-	Err         error
+	StatusCode int
+	Body       []byte
+	Err        error
 }
 
 func (e *upstreamError) Error() string {
@@ -637,11 +635,14 @@ type server struct {
 }
 
 func newServer(cfg config) *server {
+	// No TLSClientConfig at all, so the upstream is verified the way Go
+	// verifies by default. There used to be a PROXY_INSECURE_SKIP_VERIFY here
+	// that turned that off from the environment -- a switch that disabled the
+	// only thing establishing the upstream is PR2Hub, which is a switch an
+	// attacker sets. Nothing in this deployment set it, and the verification
+	// override reaches a dead address over plain HTTP, so nothing needed it.
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: cfg.InsecureSkipVerify,
-		},
 	}
 
 	return &server{
@@ -664,7 +665,8 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// reports only that this process is running. Something has to be able to
 	// tell a stopped proxy from a dead one.
 	if r.Method == http.MethodGet && r.URL.Path == healthzPath {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Content-Type", proxyContentType)
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 		s.logRequest(r, healthzRoute, "BYPASS", http.StatusOK, 0, start, nil)
@@ -757,7 +759,8 @@ func (s *server) gateReason(now time.Time) string {
 // twice. Whoever asked is told nothing; whoever runs it gets the reason in the
 // log.
 func (s *server) refuseForGate(w http.ResponseWriter, r *http.Request, reason string, start time.Time) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Type", proxyContentType)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Retry-After", "30")
 	w.WriteHeader(http.StatusServiceUnavailable)
 	_, _ = w.Write([]byte("The server is not running.\n"))
@@ -790,15 +793,30 @@ func (s *server) allowRequest(ip string, route *proxyRoute, now time.Time) bool 
 	return s.rateLimiter.Allow(ip+":"+string(route.Kind), cfg, now)
 }
 
+// Who asked, as far as anything here can establish it.
+//
+// This proxy publishes no port and sits on an internal network, so the only
+// route to it is Apache -- and mod_proxy *appends* the address it saw to
+// whatever X-Forwarded-For arrived with the request. The last element is
+// therefore Apache's own observation, and every element before it is the
+// client's to write.
+//
+// Reading the first element let a stranger name themselves. That name is the
+// rate limiter's key and the log's attribution, so a fresh name on every
+// request was a fresh allowance on every request, and a record of whatever it
+// was told. Reading the last element makes forging it require already being
+// inside the network rather than merely being able to set a header.
+//
+// X-Real-IP is not read at all. Nothing in this deployment sets it, so a value
+// found in it came from the client and from nobody else.
 func clientIP(r *http.Request) string {
-	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
 		parts := strings.Split(forwarded, ",")
-		if len(parts) > 0 {
-			return strings.TrimSpace(parts[0])
+		last := strings.TrimSpace(parts[len(parts)-1])
+		// An address, or it is not evidence of anything.
+		if net.ParseIP(last) != nil {
+			return last
 		}
-	}
-	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
-		return realIP
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil && host != "" {
@@ -829,24 +847,17 @@ func (s *server) fetchAndMaybeCache(route *proxyRoute) (*fetchResult, error) {
 		return nil, &upstreamError{StatusCode: resp.StatusCode, Err: err}
 	}
 
-	contentType := strings.TrimSpace(resp.Header.Get("Content-Type"))
-	if contentType == "" {
-		contentType = "text/plain; charset=utf-8"
-	}
-
 	if resp.StatusCode != http.StatusOK {
 		return nil, &upstreamError{
-			StatusCode:  resp.StatusCode,
-			ContentType: contentType,
-			Body:        body,
+			StatusCode: resp.StatusCode,
+			Body:       body,
 		}
 	}
 
 	now := time.Now().UTC()
 	entry := &cacheEntry{
-		StatusCode:  resp.StatusCode,
-		ContentType: contentType,
-		BodyBase64:  base64.StdEncoding.EncodeToString(body),
+		StatusCode: resp.StatusCode,
+		BodyBase64: base64.StdEncoding.EncodeToString(body),
 		FetchedAt:   now,
 		ExpiresAt:   now.Add(route.CacheTTL),
 	}
@@ -867,7 +878,8 @@ func (s *server) writeCachedResponse(w http.ResponseWriter, entry *cacheEntry, c
 		return
 	}
 
-	w.Header().Set("Content-Type", entry.ContentType)
+	w.Header().Set("Content-Type", proxyContentType)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Proxy-Cache", cacheStatus)
 	w.Header().Set("X-Proxy-Cache-Key", shortHash(cacheKey))
 	if upstreamStatus > 0 {
@@ -909,12 +921,8 @@ func (s *server) respondUpstreamError(w http.ResponseWriter, r *http.Request, ro
 			status = http.StatusBadGateway
 		}
 
-		contentType := upErr.ContentType
-		if contentType == "" {
-			contentType = "text/plain; charset=utf-8"
-		}
-
-		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Content-Type", proxyContentType)
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Proxy-Cache", "MISS")
 		if upErr.StatusCode > 0 {
 			w.Header().Set("X-Proxy-Upstream-Status", strconv.Itoa(upErr.StatusCode))
@@ -998,7 +1006,7 @@ func main() {
 	defer cancel()
 	startJanitor(ctx, srv.cache)
 
-	log.Printf("starting PR2Hub proxy on %s (upstream=%s insecure_skip_verify=%t)", cfg.ListenAddr, cfg.UpstreamBase, cfg.InsecureSkipVerify)
+	log.Printf("starting PR2Hub proxy on %s (upstream=%s)", cfg.ListenAddr, cfg.UpstreamBase)
 	if err := http.ListenAndServe(cfg.ListenAddr, srv); err != nil {
 		log.Fatal(err)
 	}
