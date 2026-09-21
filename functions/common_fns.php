@@ -715,3 +715,49 @@ function is_usable_port($value)
     $n = (int) $value;
     return $n >= 1 && $n <= 65535;
 }
+
+
+// The server status file, turned into a list of servers or into a refusal.
+//
+// The minute job writes this file as an object with a `servers` array
+// (write_server_status, functions/cron/cron_fns.php). Reading it back can fail
+// at four separate points, and server_status.php checked none of them: it
+// called array_key_exists() on the decoded value, which PHP 8.0 removed for
+// objects. The file decodes to an object, so that line was a fatal TypeError
+// on every request and the page has never rendered on this PHP. The catch
+// block it already had could not help, because a TypeError is not an Exception
+// and the failure happened before anything it guards.
+//
+// Each failure is separated here because they mean different things to whoever
+// is looking: a file that is not there yet is a deployment that has not run
+// its minute job, and a file that will not decode is a deployment with a
+// problem. Returning an empty list for either would show an empty table and
+// say the game has no servers, which is the one answer that is wrong in both
+// cases.
+//
+// Takes what file_get_contents returned, false included, so the caller does
+// not have to test that separately. Returns a list, possibly empty. Throws
+// with a message fit to show a requester.
+function server_status_servers($raw)
+{
+    if (!is_string($raw)) {
+        throw new Exception('The server list has not been written yet. Please try again shortly.');
+    }
+
+    $data = json_decode($raw);
+    if (!($data instanceof stdClass)) {
+        throw new Exception('The server list could not be read.');
+    }
+
+    // Kept from the original, and read the way the rest of this object is
+    // read: a writer may put an error in the file instead of a list.
+    if (property_exists($data, 'error')) {
+        throw new Exception((string) $data->error);
+    }
+
+    if (!property_exists($data, 'servers') || !is_array($data->servers)) {
+        throw new Exception('The server list could not be read.');
+    }
+
+    return $data->servers;
+}

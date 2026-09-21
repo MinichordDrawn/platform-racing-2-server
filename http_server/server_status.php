@@ -1,16 +1,17 @@
 <?php
 
+require_once FNS_DIR . '/common_fns.php';
 require_once HTTP_FNS . '/http_data_fns.php';
 require_once HTTP_FNS . '/output_fns.php';
 
 output_header('Server Status');
 
 try {
-    $data = json_decode(file_get_contents(DATA_DIR . "/files/server_status_2.txt"));
-
-    if (array_key_exists('error', $data)) {
-        throw new Exception($data->error);
-    }
+    // Reading the file is server_status_servers()'s job, including deciding
+    // what a file that is absent, undecodable or the wrong shape means. It
+    // throws, and the catch below is what this page already does with a
+    // throw, so every one of those ends as this page's own error box.
+    $servers = server_status_servers(@file_get_contents(DATA_DIR . '/files/server_status_2.txt'));
 
     // make a heading
     echo '<center>'
@@ -26,7 +27,7 @@ try {
         <th>Tournament</th>
       </tr>";
 
-    foreach ($data->servers as $server) {
+    foreach ($servers as $server) {
         // echo this when it's yes/no
         $yes = "<b>Yes</b>";
         $no = "No";
