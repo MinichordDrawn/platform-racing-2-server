@@ -112,8 +112,19 @@ observers keep cycling. What stops is the work.
 ```
 
 Every path has exactly one writer, and that is enforced by how the volumes are
-mounted rather than by the code agreeing to behave. A member can write its own
-store and nothing else, apart from the one `halts/` slot it owns in each peer.
+mounted rather than by the code agreeing to behave.
+
+Outside its own store, a member writes in three kinds of place, and it is the
+only writer of each:
+
+- the `halts/` slot named after it, in each of the other three
+- the one peer's `copy/` folder it is the author for
+- its own `copy-<name>` folder in `super`'s store
+
+`super` is the exception to the middle one: instead of one peer's `copy/` it
+writes `copy-super/` in all three of the others. That is what corroborates its
+own store, which matters most for the member whose unreachability stops
+everything and who alone decides the all-clear.
 
 Inside the three containers that hold work, the observer and the work run as
 **different users**, and the store belongs to the observer. The game server
