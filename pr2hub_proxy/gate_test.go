@@ -246,6 +246,12 @@ func TestProxyRefusesEveryRouteWhenTheGateSaysStop(t *testing.T) {
 		{http.MethodGet, "/level_data.php?level_id=7", ""},
 		{http.MethodPost, "/search_levels.php", "mode=user&search_str=bls1999"},
 		{http.MethodGet, "/nonsense", ""},
+		// Liveness included, because Apache maps /pr2hub/ onto this whole path
+		// space and publishes it. A path that answered 200 while every other
+		// path answered 503 would be the one thing on the origin telling a
+		// stranger that the deployment is stopped rather than broken -- which
+		// is exactly what both refusal paths are written not to say.
+		{http.MethodGet, "/healthz", ""},
 	}
 
 	for _, tc := range requests {
@@ -296,22 +302,26 @@ func TestRefusalSaysNothingAboutTheDeployment(t *testing.T) {
 	}
 }
 
-// Nothing is prevented from starting. This route reads no cache and makes no
-// upstream call, so what it reports stays true during a halt, and something
-// has to be able to tell a stopped proxy from a dead one.
-func TestHealthzStillAnswersWhenTheGateSaysStop(t *testing.T) {
-	now := time.Now().UTC()
-	root := cleanStore(t, now)
-	touch(t, filepath.Join(root, "super", "halt"))
-
-	cfg := testGate(root)
-	cfg.CacheDir = t.TempDir()
-
-	rec := httptest.NewRecorder()
-	newServer(cfg).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected healthz to answer, got %d", rec.Code)
+// Nothing is answered ahead of the gate.
+//
+// There used to be a liveness route here, exempted on the grounds that
+// something has to be able to tell a stopped proxy from a dead one. Two things
+// were wrong with that. Apache maps /pr2hub/ onto this proxy's whole path
+// space with no restriction, and the web tier publishes its ports, so the
+// route was reachable from outside rather than from a supervisor; and nothing
+// in the deployment ever called it. What it did was answer 200 during a halt
+// while every other path answered 503, on the game's own origin -- an exemption
+// with no caller, telling a stranger precisely what the refusal withholds.
+//
+// If liveness is wanted later it belongs somewhere that is not a published
+// path: a container healthcheck runs inside the container and needs no route.
+func TestNothingIsAnsweredAheadOfTheGate(t *testing.T) {
+	src, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(src), "healthz") {
+		t.Fatal("a liveness route survives in main.go")
 	}
 }
 

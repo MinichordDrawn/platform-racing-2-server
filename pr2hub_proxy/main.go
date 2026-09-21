@@ -244,13 +244,6 @@ type proxyRoute struct {
 	NormalizedKey string
 }
 
-// Liveness is answered in ServeHTTP, ahead of the gate, and so is not a route
-// here: a path that is served while the deployment is stopped is not one of
-// the ways in that the gate is there to close.
-const healthzPath = "/healthz"
-
-var healthzRoute = &proxyRoute{RouteLabel: "healthz"}
-
 func buildRoute(r *http.Request, cfg config) (*proxyRoute, error) {
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/files/lists/"):
@@ -660,22 +653,20 @@ func newServer(cfg config) *server {
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	// Liveness first, because it is the one thing here that stays true while
-	// the ring says stop: it reads no cache, makes no upstream call and
-	// reports only that this process is running. Something has to be able to
-	// tell a stopped proxy from a dead one.
-	if r.Method == http.MethodGet && r.URL.Path == healthzPath {
-		w.Header().Set("Content-Type", proxyContentType)
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-		s.logRequest(r, healthzRoute, "BYPASS", http.StatusOK, 0, start, nil)
-		return
-	}
-
-	// Then the observer network, before the route is parsed and before a byte
-	// of the request body is read. A halted deployment answers one way on
-	// every path, and says nothing about which path was asked for.
+	// The observer network first, before anything else at all: before the
+	// route is parsed and before a byte of the request body is read. A halted
+	// deployment answers one way on every path here, and says nothing about
+	// which path was asked for.
+	//
+	// There is no exemption. A liveness route used to sit above this, on the
+	// reasoning that something must be able to tell a stopped proxy from a
+	// dead one -- but Apache maps /pr2hub/ onto this proxy's whole path space
+	// and the web tier publishes its ports, so it was reachable by anyone
+	// rather than by a supervisor, and nothing in the deployment called it.
+	// What it did was answer 200 during a halt while every other path answered
+	// 503, which told a stranger exactly what both refusal paths are written
+	// to withhold. Liveness, if it is wanted, belongs in a container
+	// healthcheck that runs inside the container and needs no published path.
 	if reason := s.gateReason(time.Now()); reason != "" {
 		s.refuseForGate(w, r, reason, start)
 		return
