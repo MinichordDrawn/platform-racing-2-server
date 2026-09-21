@@ -100,6 +100,7 @@ function local_check_identifiers(): array
         // this observer's own store and process
         'own-store-writable',
         'own-store-private',
+        'observing-since',
         'halts-readable',
         'cycle-within-cadence',
         // the work on this observer's own host

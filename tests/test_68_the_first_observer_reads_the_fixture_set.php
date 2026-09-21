@@ -316,6 +316,20 @@ foreach ($fixtures as $name) {
     // time, so staleness became a duration. Only the V6 fixtures carry it.
     $unchanged = $manifest['unchanged'] ?? array();
 
+    // When this reader began observing, which the trace checks consult to ask
+    // whether a schedule has had time to run at all. run.php reads it from a
+    // file in the store; a fixture is a read-only snapshot whose store does
+    // not carry one, so the harness supplies it here alongside the other
+    // in-process state.
+    //
+    // The default is a year before the fixture's `now`, so a schedule that has
+    // never run is overdue -- which is what the arithmetic this replaced
+    // produced for these fixtures, their sequences being large. A fixture that
+    // wants the other branch, where nothing is due yet, declares its own.
+    $observing_since = isset($manifest['observing_since'])
+        ? \pr2obs\web\parse_timestamp($manifest['observing_since'])
+        : \pr2obs\web\parse_timestamp($params['now']) - 31536000;
+
     $result = \pr2obs\web\run_cycle(array(
         'stores'      => $stores,
         'identity'    => $identity,
@@ -324,6 +338,7 @@ foreach ($fixtures as $name) {
         'memory'      => $memory,
         'booted'      => $booted,
         'unchanged'   => $unchanged,
+        'observing_since' => $observing_since,
         'traces_root' => "$dir/traces",
         'traces'      => $manifest['traces'] ?? array(),
         'db'          => $manifest['db'] ?? array(),

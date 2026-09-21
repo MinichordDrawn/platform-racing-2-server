@@ -289,10 +289,24 @@ function run_cycle(array $config): array
     }
 
     if (!empty($config['traces'])) {
-        // How long this deployment has actually been observed: the
-        // sequence about to be published, times the cadence. Durable
-        // across restarts, which container uptime is not.
-        $observed_seconds = $highest * (int) $R->param('cadence_seconds');
+        // How long this deployment has actually been observed, from the
+        // timestamp written into the store the first time this observer ran.
+        // Durable across restarts, which container uptime is not.
+        //
+        // This was the published sequence times the cadence, which is not a
+        // duration: cycles are not paced at the cadence, so it ran about
+        // twenty times fast and halted fresh deployments on schedules that
+        // were not actually overdue. See observing_since_at().
+        $since = $config['observing_since'] ?? null;
+        if ($since === null) {
+            // Nothing is due on a clock that cannot be read. Saying so is the
+            // point: an unreadable start time is a fault of its own rather
+            // than a licence to skip every trace check underneath it.
+            $R->fail('observing-since', null, 'the store does not record when this observer began');
+            $observed_seconds = 0;
+        } else {
+            $observed_seconds = max(0, time() - $since);
+        }
         check_traces($R, $config['traces_root'], $config['traces'], $observed_seconds);
     }
     if (!empty($config['db'])) {
@@ -338,6 +352,7 @@ function run_cycle(array $config): array
     }
     $checks[] = 'own-store-writable';
     $checks[] = 'own-store-private';
+    $checks[] = 'observing-since';
     $checks[] = 'halts-readable';
     // Raised by every observer and published by none of them until now.
     // cycle-within-cadence is decided below, against the ceiling this

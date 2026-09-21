@@ -95,6 +95,11 @@ function store_root_permitted(string $identity): array
         'halt'      => 'file',
         'halt.tmp'  => 'file',
         'halts'     => 'dir',
+        // When this observer first began. Written once and never again, which
+        // is what makes it a clock rather than an uptime. See
+        // observing_since_at().
+        'since'     => 'file',
+        'since.tmp' => 'file',
     );
     if ($identity === 'super') {
         $common['copy-web'] = 'dir';
@@ -413,6 +418,41 @@ function own_store_private_at(string $stores, string $identity): ?string
     }
 
     return null;
+}
+
+
+// When this observer began observing, as a UTC timestamp, or null when that
+// cannot be established.
+//
+// The trace checks need to know whether a schedule has had time to run at all,
+// and the answer has to survive a restart: container uptime is reset by a
+// bounce, so a schedule that is never scheduled would be granted a fresh
+// period of grace every time the container came back, and the one case those
+// checks exist for would never be reported.
+//
+// It used to be worked out as the published sequence times the cadence. That
+// is not a duration. run.php runs the next cycle as soon as the last one ends,
+// floored at OBSERVER_MIN_CYCLE_MS and not paced at the cadence, so cycles
+// arrive roughly twenty times faster than the cadence and the product ran
+// twenty times fast. A deployment five minutes old believed it had been
+// observing for an hour and a half, decided the hourly schedule was overdue,
+// and halted itself. run.php:323-325 already said a count of cycles is not a
+// unit of time; this is the other half of the tree agreeing with it.
+//
+// A wall-clock start, stored once, counts the time a deployment was down as
+// well as the time it was up. That is the right answer for the question being
+// asked: a daily job that has never once run in a week is broken whether or
+// not the host was switched off for some of it.
+function observing_since_at(string $stores, string $identity): ?int
+{
+    $raw = @file_get_contents(join_path($stores, $identity, 'since'));
+    if ($raw === false) {
+        return null;
+    }
+    // Read by the same parser as every other timestamp in the tree, which is
+    // strict about the shape and round-trips what it parses. A seventh reader
+    // of one format is how the last two of these went wrong.
+    return parse_timestamp(trim($raw));
 }
 
 

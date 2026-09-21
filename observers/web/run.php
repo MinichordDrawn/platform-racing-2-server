@@ -234,6 +234,21 @@ while (true) {
     $began = hrtime(true);
     $state['params']['now'] = gmdate('Y-m-d\TH:i:s\Z');
 
+    // When this observer began, written once and then only ever read.
+    //
+    // Written here because it is a write, and this is the process allowed to
+    // make them. Never rewritten: the moment it is refreshed on each start it
+    // becomes container uptime, and a schedule that is never scheduled would
+    // get a fresh period of grace every time the container bounced, which is
+    // the single case the trace freshness check exists to catch.
+    if (!is_file(join_path($stores, $identity, 'since'))) {
+        publish_atomic(
+            join_path($stores, $identity, 'since'),
+            gmdate('Y-m-d\TH:i:s\Z') . PHP_EOL
+        );
+    }
+    $observing_since = observing_since_at($stores, $identity);
+
     // SPEC 13.3, done here because it is a write. Asking before the cycle
     // rather than discovering it at publication is what lets this cycle act
     // on the answer instead of the next one inheriting it.
@@ -269,6 +284,7 @@ while (true) {
         'unchanged'       => $state['unchanged'] ?? array(),
         'own_store_writable' => $writable,
         'own_store_private' => $private,
+        'observing_since' => $observing_since,
         'own_store_writable_detail' => $writable_detail,
         'container_baseline' => $container_baseline,
         'work_due'        => $work_seen || (time() - $process_started) >= $work_grace,
