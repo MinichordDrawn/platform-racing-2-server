@@ -165,7 +165,7 @@ function process_running(string $fragment): bool
         return false;
     }
     foreach ($procs as $pid) {
-        if (preg_match('/^\d+$/', $pid) !== 1) {
+        if (preg_match('/^\d+\z/', $pid) !== 1) {
             continue;
         }
         $cmd = @file_get_contents("/proc/$pid/cmdline");

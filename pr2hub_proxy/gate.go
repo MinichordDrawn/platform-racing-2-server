@@ -66,9 +66,9 @@ const gateMaxHeartbeatBytes = 8192
 const gateHeartbeatMarker = `{"kind":"heartbeat",`
 
 var (
-	gateHeartbeatName = regexp.MustCompile(`^\d{10}\.hb$`)
-	gateWholeNumber   = regexp.MustCompile(`^\d+$`)
-	gateTimestamp     = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$`)
+	gateHeartbeatName = regexp.MustCompile(`^\d{10}\.hb\z`)
+	gateWholeNumber   = regexp.MustCompile(`^\d+\z`)
+	gateTimestamp     = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\z`)
 )
 
 // The settings, from a lookup of the environment.

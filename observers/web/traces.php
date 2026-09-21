@@ -97,7 +97,7 @@ function trace_runs(string $dir): array
     $names = list_dir($dir);
     $out = array();
     foreach (($names ?? array()) as $name) {
-        if (preg_match('/^[0-9]{10}\.trace$/', $name) !== 1) {
+        if (preg_match('/^[0-9]{10}\.trace\z/', $name) !== 1) {
             continue;
         }
         $out[(int) substr($name, 0, 10)] = join_path($dir, $name);

@@ -136,12 +136,12 @@ const KEYS_HALT  = array('kind', 'version', 'observer', 'reason', 'subject', 'se
 
 function is_timestamp($v): bool
 {
-    return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/', $v) === 1;
+    return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\z/', $v) === 1;
 }
 
 function is_hash($v): bool
 {
-    return is_string($v) && preg_match('/^[0-9a-f]{64}$/', $v) === 1;
+    return is_string($v) && preg_match('/^[0-9a-f]{64}\z/', $v) === 1;
 }
 
 // SPEC 3.1: the writer ends the file with exactly one line feed; a reader
@@ -303,12 +303,12 @@ function heartbeat_name(int $sequence): string
 
 function is_heartbeat_name(string $name): bool
 {
-    return preg_match('/^[0-9]{10}\.hb$/', $name) === 1;
+    return preg_match('/^[0-9]{10}\.hb\z/', $name) === 1;
 }
 
 function is_heartbeat_staging_name(string $name): bool
 {
-    return preg_match('/^[0-9]{10}\.hb\.tmp$/', $name) === 1;
+    return preg_match('/^[0-9]{10}\.hb\.tmp\z/', $name) === 1;
 }
 
 function sequence_of_name(string $name): int
@@ -316,8 +316,26 @@ function sequence_of_name(string $name): int
     return (int) substr($name, 0, 10);
 }
 
+// SPEC 3.1 fixes one form, so this reads one form and invents nothing.
+//
+// `createFromFormat` on its own is not a reader of that rule: without the
+// reset flag it fills the unmentioned fields from the current time, it accepts
+// trailing data, and it rolls a date that does not exist over into one that
+// does -- so a file saying the thirty-first of February parsed, as the third
+// of March. A reader that accepts more than the specification allows is a
+// reader that will one day disagree with the other five about a file.
+//
+// The shape check comes first, and the round trip is what refuses the
+// roll-over: a value that formats back to something other than what was read
+// was not the value that was written.
 function parse_timestamp(string $ts): ?int
 {
-    $dt = \DateTimeImmutable::createFromFormat('Y-m-d\TH:i:s\Z', $ts, new \DateTimeZone('UTC'));
-    return $dt === false ? null : $dt->getTimestamp();
+    if (!is_timestamp($ts)) {
+        return null;
+    }
+    $dt = \DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:s\Z', $ts, new \DateTimeZone('UTC'));
+    if ($dt === false || $dt->format('Y-m-d\TH:i:s\Z') !== $ts) {
+        return null;
+    }
+    return $dt->getTimestamp();
 }

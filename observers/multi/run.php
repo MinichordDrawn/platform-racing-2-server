@@ -31,7 +31,7 @@ require_once __DIR__ . '/container.php';
 function required_int(string $name, int $min, int $max): int
 {
     $raw = getenv($name);
-    if ($raw === false || $raw === '' || preg_match('/^\d+$/', $raw) !== 1) {
+    if ($raw === false || $raw === '' || preg_match('/^\d+\z/', $raw) !== 1) {
         fwrite(STDERR, "observer: $name must be set to an integer\n");
         exit(2);
     }

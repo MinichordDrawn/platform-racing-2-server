@@ -145,7 +145,7 @@ function observer_gate_settings_from(array $env)
         'super_max_age' => 'OBSERVER_SUPER_MAX_AGE_SECONDS',
     ) as $key => $name) {
         $raw = isset($env[$name]) ? $env[$name] : '';
-        if (preg_match('/^\d+$/', (string) $raw) !== 1 || (int) $raw < 1 || (int) $raw > 3600) {
+        if (preg_match('/^\d+\z/', (string) $raw) !== 1 || (int) $raw < 1 || (int) $raw > 3600) {
             return "$name must be set to a whole number of seconds between 1 and 3600";
         }
         $ages[$key] = (int) $raw;
@@ -183,15 +183,31 @@ function observer_gate_settings()
 // A timestamp as SPEC 3.1 fixes it: exactly `YYYY-MM-DDTHH:MM:SSZ`, UTC, whole
 // seconds. Anything else is not a timestamp, and a reader that guessed at one
 // would be deciding freshness from a string it did not understand.
+//
+// Anchored with `\z` rather than `$`, here and everywhere else in this file.
+// PCRE's `$` matches before a final line feed and RE2's does not, so the same
+// bytes were a timestamp to this reader and not a timestamp to the one in
+// pr2hub_proxy/gate.go. Two readers that disagree about the format are not two
+// readers agreeing, whatever they then conclude.
 function observer_gate_time($text)
 {
     if (!is_string($text)
-        || preg_match('/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z$/', $text, $m) !== 1
+        || preg_match('/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\z/', $text, $m) !== 1
     ) {
         return null;
     }
+
     $t = gmmktime((int) $m[4], (int) $m[5], (int) $m[6], (int) $m[2], (int) $m[3], (int) $m[1]);
-    return $t === false ? null : $t;
+
+    // The shape says six fields of the right width; it does not say they name
+    // a moment. gmmktime rolls the thirty-first of February over into the
+    // third of March rather than refusing it, so the round trip is what
+    // refuses: a value that formats back to something other than what was read
+    // was not the value that was written.
+    if ($t === false || gmdate('Y-m-d\TH:i:s\Z', $t) !== $text) {
+        return null;
+    }
+    return $t;
 }
 
 
@@ -216,7 +232,7 @@ function observer_gate_alive($stores, $who, $max_age, $now)
     // not finished.
     $latest = null;
     foreach ($names as $n) {
-        if (preg_match('/^\d{10}\.hb$/', $n) === 1 && ($latest === null || $n > $latest)) {
+        if (preg_match('/^\d{10}\.hb\z/', $n) === 1 && ($latest === null || $n > $latest)) {
             $latest = $n;
         }
     }
