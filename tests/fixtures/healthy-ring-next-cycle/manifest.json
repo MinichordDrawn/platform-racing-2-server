@@ -1,0 +1,74 @@
+{
+    "fixture": "healthy-ring-next-cycle",
+    "description": "The same ring one cycle later (window 42..45). Judged together with healthy-ring, an implementation must produce alive on both and commit to the advanced hashes.",
+    "rules": [
+        "SPEC 8.1",
+        "SPEC 6"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:35Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": false
+        },
+        "publish": {
+            "sequence": 46,
+            "previous": "bcc647a6e3cc67fdd9b1e01af707e406092b701364073b3330b42aa971abf6e3",
+            "observed": {
+                "multi": "db6629bd7a936f6d87f5f1aa46d95d255b6b3391d85cfd3aab8c56933e7d7c6b",
+                "policy": "bf19b20534dd1b78976615d8f17228d8f3bf4c0940c0dd836908677edda64166",
+                "super": "b042e1b1c0d7f06887bca9666c9a9abdd8652e9e7d93119026a9a6eb3c8d418f"
+            },
+            "boot": null,
+            "stop": false
+        }
+    }
+}

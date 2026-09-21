@@ -1,0 +1,5 @@
+{"kind":"trace","version":1,"schedule":"daily","run":123,"started":"2026-09-20T08:58:20Z"}
+{"kind":"task","id":"ratings_delete_old","completed":true,"count":0}
+{"kind":"task","id":"guilds_reset_gp_today","completed":true,"count":0}
+{"kind":"task","id":"gp_reset","completed":true,"count":0}
+{"kind":"task","id":"check_expired_rank_token_rentals","completed":true,"count":0}

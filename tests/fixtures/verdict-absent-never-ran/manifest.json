@@ -1,0 +1,79 @@
+{
+    "fixture": "verdict-absent-never-ran",
+    "description": "policy's store root exists with no heartbeat folder and the reader has never observed it (basis null). Absent, a fault, not I4.",
+    "rules": [
+        "SPEC 8.1 V2"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "alive",
+            "policy": "absent",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "member-present",
+                "subject": "policy"
+            }
+        ],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": true,
+            "reason": "member-present",
+            "subject": "policy"
+        },
+        "publish": {
+            "sequence": 45,
+            "previous": "24964ee4f42ff80338ae3630e385b9b80c7f117b361a5e5fa6ba1a12c0124826",
+            "observed": {
+                "multi": "80db4f1c74fb96708f06c7d4096b2dfd0e6a97266603b0344d6c6cecff87c90d",
+                "policy": null,
+                "super": "2aa885815a6c6a09a42b51259c02b936c927aa69bff1825e03235a4eda837712"
+            },
+            "boot": null,
+            "stop": false
+        }
+    }
+}

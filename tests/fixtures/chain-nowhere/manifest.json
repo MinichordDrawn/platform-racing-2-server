@@ -1,0 +1,81 @@
+{
+    "fixture": "chain-nowhere",
+    "description": "The reader's basis for multi is a hash that matches nothing multi ever published. I1; verdict unknown.",
+    "rules": [
+        "SPEC 8.1 V7",
+        "SPEC 11.1 I1"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "unknown",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I1",
+                "subject": "multi"
+            }
+        ],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": true,
+            "reason": "I1",
+            "subject": "multi"
+        },
+        "publish": {
+            "sequence": 45,
+            "previous": "141128aba6d4c27525b39947fbddcd6208887d45b827dd120b4b59008d8ff492",
+            "observed": {
+                "multi": "7b0696591667779aee9ab919468691c6ae589fd2fa65d6a6c840b1c91227676c",
+                "policy": "54c69058f43bb6405fe1d2a418f7e2ffeac0e1d764ef7bef16965f7f29674f6d",
+                "super": "81acad84a312753ec7f9ca59b0d9e42bf2b1e8981abc164cb9510ec77e999b42"
+            },
+            "boot": null,
+            "stop": false
+        }
+    }
+}

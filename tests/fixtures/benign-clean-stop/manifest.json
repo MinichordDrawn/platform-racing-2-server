@@ -1,0 +1,81 @@
+{
+    "fixture": "benign-clean-stop",
+    "description": "multi's final heartbeat (42) carries stop:true and nothing after it. Retired is decided before stale, so the verdict says which of the two it was. It does not excuse the absence: a member that has stopped is not verifying the stores, which is the same fact about the ring as a member that has died, so member-fresh fails and the halt is raised.",
+    "rules": [
+        "SPEC 7",
+        "SPEC 8.1 V4"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "retired",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "member-fresh",
+                "subject": "multi"
+            }
+        ],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": true,
+            "reason": "member-fresh",
+            "subject": "multi"
+        },
+        "publish": {
+            "sequence": 45,
+            "previous": "fca26aa958d7a622a90a595a685407cd4adfa21f2297575dcd0d49cbc7363d23",
+            "observed": {
+                "multi": "3889a46019a31b7c103e41d801d9da9135cb91f0bddfbb4639e6c6cad59cd071",
+                "policy": "b651841884813a6165a56550097a9ca190806f21bf124269c2d59ea9c5a6ef4f",
+                "super": "e3d460c1ee58e7c6f7ea01d79b7b4aca7207fbc0f03b3da053961a0b0c69f350"
+            },
+            "boot": null,
+            "stop": false
+        }
+    }
+}

@@ -1,0 +1,89 @@
+{
+    "fixture": "trace-missing-task",
+    "description": "The latest run finished but never recorded tokens_delete_old. trace-coverage fails.",
+    "rules": [
+        "SPEC 14.2 T3"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat",
+        "traces/daily"
+    ],
+    "traces": [
+        {
+            "schedule": "daily",
+            "period_seconds": 86400,
+            "margin_seconds": 600,
+            "deadline_seconds": 3600,
+            "declared": [
+                "ratings_delete_old",
+                "guilds_reset_gp_today",
+                "gp_reset",
+                "check_expired_rank_token_rentals",
+                "tokens_delete_old",
+                "guild_transfers_expire_old",
+                "changing_emails_expire_old",
+                "exp_today_truncate",
+                "poll_servers:start_new_day"
+            ]
+        }
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "trace-coverage",
+                "subject": "daily"
+            }
+        ],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": true,
+            "reason": "trace-coverage",
+            "subject": "daily"
+        }
+    }
+}

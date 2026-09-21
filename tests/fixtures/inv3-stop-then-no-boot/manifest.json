@@ -1,0 +1,81 @@
+{
+    "fixture": "inv3-stop-then-no-boot",
+    "description": "multi's 43 says stop:true and 44 follows with boot:null. A sequence continuing past its own deliberate end. I3. multi's current entry is not a stop, so the verdict is alive.",
+    "rules": [
+        "SPEC 6.1 C9",
+        "SPEC 11.1 I3"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I3",
+                "subject": "multi"
+            }
+        ],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": true,
+            "reason": "I3",
+            "subject": "multi"
+        },
+        "publish": {
+            "sequence": 45,
+            "previous": "21cfeffb1afbfd6632cc4fed3e96930c10cfff9e7ed90d3b6176803f25b4096a",
+            "observed": {
+                "multi": "4c185a88587d3f1b823ffe70001babe28d686c27a39d38ecd37a9d09afb65b23",
+                "policy": "b7006ad7a3dc9ea235786246ce5dd2edf1f7d67bf15376fd45ca1d599ac758e2",
+                "super": "29984e50e0c0988edbc34281df66e08dacbf99095173b95d777ba0e6808393f4"
+            },
+            "boot": null,
+            "stop": false
+        }
+    }
+}

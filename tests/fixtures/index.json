@@ -1,0 +1,1605 @@
+[
+    {
+        "fixture": "healthy-ring",
+        "reader": "web",
+        "rules": [
+            "SPEC 8.1",
+            "SPEC 9",
+            "SPEC 3.5"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "healthy-ring-next-cycle",
+        "reader": "web",
+        "rules": [
+            "SPEC 8.1",
+            "SPEC 6"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "healthy-super-view",
+        "reader": "super",
+        "rules": [
+            "SPEC 9",
+            "SPEC 8.2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "web": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "healthy-transient-fifth-entry",
+        "reader": "web",
+        "rules": [
+            "SPEC 6",
+            "SPEC 6.1 C2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "healthy-young-chain",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C7",
+            "SPEC 7",
+            "SPEC 8.1 V7"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "benign-copy-one-behind",
+        "reader": "web",
+        "rules": [
+            "SPEC 9 K5",
+            "SPEC 9 K6"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "benign-cold-start-no-predecessor",
+        "reader": "web",
+        "rules": [
+            "SPEC 7",
+            "SPEC 8.1 V5"
+        ],
+        "verdicts": {
+            "multi": "unknown",
+            "policy": "unknown",
+            "super": "unknown"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "verdict-cold-start-all-absent",
+        "reader": "web",
+        "rules": [
+            "SPEC 7",
+            "SPEC 8.1 V2"
+        ],
+        "verdicts": {
+            "multi": "absent",
+            "policy": "absent",
+            "super": "absent"
+        },
+        "failing": [
+            {
+                "check": "member-present",
+                "subject": "multi"
+            },
+            {
+                "check": "member-present",
+                "subject": "policy"
+            },
+            {
+                "check": "member-present",
+                "subject": "super"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "member-present",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "verdict-absent-never-ran",
+        "reader": "web",
+        "rules": [
+            "SPEC 8.1 V2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "absent",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "member-present",
+                "subject": "policy"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "member-present",
+            "subject": "policy"
+        }
+    },
+    {
+        "fixture": "verdict-stale",
+        "reader": "web",
+        "rules": [
+            "SPEC 8",
+            "SPEC 8.1 V6"
+        ],
+        "verdicts": {
+            "multi": "stale",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "member-fresh",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "member-fresh",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "verdict-unchanged-within-tolerance",
+        "reader": "web",
+        "rules": [
+            "SPEC 8.1 V6"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "benign-clean-stop",
+        "reader": "web",
+        "rules": [
+            "SPEC 7",
+            "SPEC 8.1 V4"
+        ],
+        "verdicts": {
+            "multi": "retired",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "verdict-retired-super",
+        "reader": "web",
+        "rules": [
+            "SPEC 8.1 V4",
+            "SPEC 8.2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "retired"
+        },
+        "failing": [
+            {
+                "check": "member-fresh",
+                "subject": "super"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "member-fresh",
+            "subject": "super"
+        }
+    },
+    {
+        "fixture": "verdict-faulted",
+        "reader": "web",
+        "rules": [
+            "SPEC 8.1 V8",
+            "SPEC 12.3"
+        ],
+        "verdicts": {
+            "multi": "faulted",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "chain-ancestor-in-window",
+        "reader": "web",
+        "rules": [
+            "SPEC 8.1 V7"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "chain-outside-window",
+        "reader": "web",
+        "rules": [
+            "SPEC 8.1 V7",
+            "SPEC 11.1 I1"
+        ],
+        "verdicts": {
+            "multi": "unknown",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I1",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I1",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "chain-nowhere",
+        "reader": "web",
+        "rules": [
+            "SPEC 8.1 V7",
+            "SPEC 11.1 I1"
+        ],
+        "verdicts": {
+            "multi": "unknown",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I1",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I1",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "inv1-peer-account-not-in-chain",
+        "reader": "web",
+        "rules": [
+            "SPEC 11.1 I1(b)"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I1",
+                "subject": "policy"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I1",
+            "subject": "policy"
+        }
+    },
+    {
+        "fixture": "benign-dead-member-old-account",
+        "reader": "web",
+        "rules": [
+            "SPEC 11.1 I1(b)",
+            "SPEC 16 G7"
+        ],
+        "verdicts": {
+            "multi": "stale",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "member-fresh",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "member-fresh",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "inv2-count-mismatch",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C5",
+            "SPEC 11.1 I2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I2",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I2",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "inv2-duplicate-check",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C5",
+            "SPEC 11.1 I2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I2",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I2",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "inv3-gap-in-window",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C6",
+            "SPEC 11.1 I3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I3",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I3",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "inv3-broken-link",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C7",
+            "SPEC 11.1 I3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I3",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I3",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "inv3-null-previous-above-one",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C7",
+            "SPEC 11.1 I3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I3",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I3",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "inv3-boot-wrong-resumed-from",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C8",
+            "SPEC 11.1 I3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I3",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I3",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "inv3-stop-then-no-boot",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C9",
+            "SPEC 11.1 I3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I3",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I3",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "inv4-folder-removed",
+        "reader": "web",
+        "rules": [
+            "SPEC 8.1 V2",
+            "SPEC 11.1 I4"
+        ],
+        "verdicts": {
+            "multi": "absent",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I4",
+                "subject": "multi"
+            },
+            {
+                "check": "member-present",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I4",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "inv1-folder-emptied",
+        "reader": "web",
+        "rules": [
+            "SPEC 8.1 V2"
+        ],
+        "verdicts": {
+            "multi": "absent",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I1",
+                "subject": "multi"
+            },
+            {
+                "check": "member-present",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I1",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "benign-folder-missing-on-boot",
+        "reader": "web",
+        "rules": [
+            "SPEC 7",
+            "SPEC 8.1 V2",
+            "SPEC 16 G8"
+        ],
+        "verdicts": {
+            "multi": "absent",
+            "policy": "unknown",
+            "super": "unknown"
+        },
+        "failing": [
+            {
+                "check": "member-present",
+                "subject": "multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "member-present",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "inv5-own-file-altered",
+        "reader": "web",
+        "rules": [
+            "SPEC 11.1 I5",
+            "SPEC 4"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I5",
+                "subject": "web/heartbeat/0000000044.hb"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I5",
+            "subject": "web/heartbeat/0000000044.hb"
+        }
+    },
+    {
+        "fixture": "inv7-original-altered-peer-view",
+        "reader": "multi",
+        "rules": [
+            "SPEC 9 K5",
+            "SPEC 11.1 I7"
+        ],
+        "verdicts": {
+            "policy": "alive",
+            "super": "alive",
+            "web": "alive"
+        },
+        "failing": [
+            {
+                "check": "I7",
+                "subject": "web"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I7",
+            "subject": "web"
+        }
+    },
+    {
+        "fixture": "inv5-foreign-fault-file",
+        "reader": "web",
+        "rules": [
+            "SPEC 11.1 I5"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I5",
+                "subject": "web/fault"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I5",
+            "subject": "web/fault"
+        }
+    },
+    {
+        "fixture": "inv6-heartbeat-in-halts",
+        "reader": "web",
+        "rules": [
+            "SPEC 10.2 H2",
+            "SPEC 11.1 I6"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I6",
+                "subject": "web/halts/multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I6",
+            "subject": "web/halts/multi"
+        }
+    },
+    {
+        "fixture": "inv6-heartbeat-in-copy-root",
+        "reader": "web",
+        "rules": [
+            "SPEC 9 K2",
+            "SPEC 11.1 I6"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I6",
+                "subject": "web/copy/0000000044.hb"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I6",
+            "subject": "web/copy/0000000044.hb"
+        }
+    },
+    {
+        "fixture": "inv7-copy-forged-entry",
+        "reader": "web",
+        "rules": [
+            "SPEC 9 K5",
+            "SPEC 11.1 I7"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I7",
+                "subject": "policy"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I7",
+            "subject": "policy"
+        }
+    },
+    {
+        "fixture": "inv7-copy-ahead",
+        "reader": "web",
+        "rules": [
+            "SPEC 9 K5",
+            "SPEC 5"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I7",
+                "subject": "policy"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I7",
+            "subject": "policy"
+        }
+    },
+    {
+        "fixture": "inv7-fault-copy-wrong-author",
+        "reader": "web",
+        "rules": [
+            "SPEC 9 K7",
+            "SPEC 11.1 I7"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I7",
+                "subject": "policy"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I7",
+            "subject": "policy"
+        }
+    },
+    {
+        "fixture": "benign-stale-staging-copy",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C3",
+            "SPEC 11.3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "staging-fresh",
+                "subject": "web/copy/heartbeat/0000000045.hb.tmp"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "staging-fresh",
+            "subject": "web/copy/heartbeat/0000000045.hb.tmp"
+        }
+    },
+    {
+        "fixture": "benign-fresh-staging-copy",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "benign-stale-staging-halts",
+        "reader": "web",
+        "rules": [
+            "SPEC 10.2 H4",
+            "SPEC 10.1"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "staging-fresh",
+                "subject": "web/halts/multi.tmp"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "staging-fresh",
+            "subject": "web/halts/multi.tmp"
+        }
+    },
+    {
+        "fixture": "benign-copy-behind",
+        "reader": "web",
+        "rules": [
+            "SPEC 9 K5",
+            "SPEC 9 K6"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "copy-current",
+                "subject": "policy"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "copy-current",
+            "subject": "policy"
+        }
+    },
+    {
+        "fixture": "benign-copy-empty",
+        "reader": "web",
+        "rules": [
+            "SPEC 9 K6"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "copy-current",
+                "subject": "policy"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "copy-current",
+            "subject": "policy"
+        }
+    },
+    {
+        "fixture": "benign-fault-copy-missing",
+        "reader": "web",
+        "rules": [
+            "SPEC 9 K7"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "faulted",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "copy-current",
+                "subject": "policy"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "copy-current",
+            "subject": "policy"
+        }
+    },
+    {
+        "fixture": "benign-restart-boot-record",
+        "reader": "web",
+        "rules": [
+            "SPEC 7",
+            "SPEC 6.1 C8"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "benign-boot-fresh-chain",
+        "reader": "web",
+        "rules": [
+            "SPEC 7",
+            "SPEC 8.1 V5"
+        ],
+        "verdicts": {
+            "multi": "unknown",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "shape-copy-too-many-entries",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C2",
+            "SPEC 11.2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "S3",
+                "subject": "web/copy/heartbeat"
+            },
+            {
+                "check": "copy-current",
+                "subject": "policy"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "S3",
+            "subject": "web/copy/heartbeat"
+        }
+    },
+    {
+        "fixture": "shape-copy-subdirectory",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C1",
+            "SPEC 11.2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "S2",
+                "subject": "web/copy/heartbeat/extra"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "S2",
+            "subject": "web/copy/heartbeat/extra"
+        }
+    },
+    {
+        "fixture": "shape-copy-unexpected-name",
+        "reader": "web",
+        "rules": [
+            "SPEC 9 K2",
+            "SPEC 11.2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "S1",
+                "subject": "web/copy/notes.txt"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "S1",
+            "subject": "web/copy/notes.txt"
+        }
+    },
+    {
+        "fixture": "shape-copy-oversized-fault",
+        "reader": "web",
+        "rules": [
+            "SPEC 3.1",
+            "SPEC 9 K2",
+            "SPEC 11.2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "S4",
+                "subject": "web/copy/fault"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "S4",
+            "subject": "web/copy/fault"
+        }
+    },
+    {
+        "fixture": "shape-copy-two-staging-files",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C2",
+            "SPEC 11.2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "S3",
+                "subject": "web/copy/heartbeat"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "S3",
+            "subject": "web/copy/heartbeat"
+        }
+    },
+    {
+        "fixture": "shape-halts-unexpected-name",
+        "reader": "web",
+        "rules": [
+            "SPEC 10.2 H2",
+            "SPEC 10.1"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "S1",
+                "subject": "web/halts/stranger"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "S1",
+            "subject": "web/halts/stranger"
+        }
+    },
+    {
+        "fixture": "shape-halts-subdirectory",
+        "reader": "web",
+        "rules": [
+            "SPEC 10.2 H2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "S2",
+                "subject": "web/halts/evil"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "S2",
+            "subject": "web/halts/evil"
+        }
+    },
+    {
+        "fixture": "shape-halts-oversized",
+        "reader": "web",
+        "rules": [
+            "SPEC 10.2 H5",
+            "SPEC 10.1"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "S4",
+                "subject": "web/halts/multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "S4",
+            "subject": "web/halts/multi"
+        }
+    },
+    {
+        "fixture": "halt-unparseable-in-force",
+        "reader": "web",
+        "rules": [
+            "SPEC 10.2 H6",
+            "SPEC 10.1",
+            "SPEC 3.1"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "S5",
+                "subject": "web/halts/multi"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "S5",
+            "subject": "web/halts/multi"
+        }
+    },
+    {
+        "fixture": "shape-heartbeat-unknown-key",
+        "reader": "web",
+        "rules": [
+            "SPEC 3.1",
+            "SPEC 6.1 C5",
+            "SPEC 8.1 V3"
+        ],
+        "verdicts": {
+            "multi": "unknown",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "S5",
+                "subject": "multi/heartbeat/0000000044.hb"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "S5",
+            "subject": "multi/heartbeat/0000000044.hb"
+        }
+    },
+    {
+        "fixture": "shape-heartbeat-sequence-mismatch",
+        "reader": "web",
+        "rules": [
+            "SPEC 6.1 C5",
+            "SPEC 11.1 I6"
+        ],
+        "verdicts": {
+            "multi": "unknown",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "S5",
+                "subject": "multi/heartbeat/0000000044.hb"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "S5",
+            "subject": "multi/heartbeat/0000000044.hb"
+        }
+    },
+    {
+        "fixture": "halt-relay",
+        "reader": "web",
+        "rules": [
+            "SPEC 12.2",
+            "SPEC 10.1",
+            "SPEC 12.3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "faulted",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "halt-relay-idempotent",
+        "reader": "web",
+        "rules": [
+            "SPEC 12.2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "faulted",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "halt-lifting-not-relayed",
+        "reader": "web",
+        "rules": [
+            "SPEC 12.2",
+            "SPEC 12.3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "halt-relay-from-peer-own-halt",
+        "reader": "web",
+        "rules": [
+            "SPEC 12.2",
+            "SPEC 10.1"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "faulted",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "recovery-all-clear",
+        "reader": "web",
+        "rules": [
+            "SPEC 12.3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "recovery-blocked-by-peer-fault",
+        "reader": "web",
+        "rules": [
+            "SPEC 12.3",
+            "SPEC 12.2"
+        ],
+        "verdicts": {
+            "multi": "faulted",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "recovery-blocked-by-super-halt",
+        "reader": "web",
+        "rules": [
+            "SPEC 12.3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "recovery-super-stands-down",
+        "reader": "super",
+        "rules": [
+            "SPEC 12.3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "web": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "recovery-super-blocked-by-fault",
+        "reader": "super",
+        "rules": [
+            "SPEC 12.3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "faulted",
+            "web": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "order-first-finding-names-halt",
+        "reader": "web",
+        "rules": [
+            "SPEC 13",
+            "SPEC 3.4"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I2",
+                "subject": "multi"
+            },
+            {
+                "check": "staging-fresh",
+                "subject": "web/copy/heartbeat/0000000045.hb.tmp"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "I2",
+            "subject": "multi"
+        }
+    },
+    {
+        "fixture": "trace-fresh-complete",
+        "reader": "web",
+        "rules": [
+            "SPEC 14.2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "trace-stale",
+        "reader": "web",
+        "rules": [
+            "SPEC 14.2 T1"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "trace-fresh",
+                "subject": "daily"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "trace-fresh",
+            "subject": "daily"
+        }
+    },
+    {
+        "fixture": "trace-incomplete-past-deadline",
+        "reader": "web",
+        "rules": [
+            "SPEC 14.2 T2",
+            "SPEC 14.2 T3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "trace-complete",
+                "subject": "daily"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "trace-complete",
+            "subject": "daily"
+        }
+    },
+    {
+        "fixture": "trace-in-progress",
+        "reader": "web",
+        "rules": [
+            "SPEC 14.2 T2"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "trace-missing-task",
+        "reader": "web",
+        "rules": [
+            "SPEC 14.2 T3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "trace-coverage",
+                "subject": "daily"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "trace-coverage",
+            "subject": "daily"
+        }
+    },
+    {
+        "fixture": "trace-task-not-completed",
+        "reader": "web",
+        "rules": [
+            "SPEC 14.2 T3"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "trace-coverage",
+                "subject": "daily"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "trace-coverage",
+            "subject": "daily"
+        }
+    },
+    {
+        "fixture": "trace-partial-line-ignored",
+        "reader": "web",
+        "rules": [
+            "SPEC 14.1"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt": {
+            "writes": false
+        }
+    },
+    {
+        "fixture": "trace-postcondition-nonzero",
+        "reader": "web",
+        "rules": [
+            "SPEC 14.2 T4"
+        ],
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "postcondition",
+                "subject": "tokens_delete_old"
+            }
+        ],
+        "halt": {
+            "writes": true,
+            "reason": "postcondition",
+            "subject": "tokens_delete_old"
+        }
+    }
+]

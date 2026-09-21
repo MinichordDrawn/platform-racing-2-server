@@ -1,0 +1,84 @@
+{
+    "fixture": "halt-relay-from-peer-own-halt",
+    "description": "policy's own store holds a halt and nothing has been delivered anywhere (policy's deliveries failed). web finds it by reading policy's store and relays into every other store, including policy's own halts/.",
+    "rules": [
+        "SPEC 12.2",
+        "SPEC 10.1"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "alive",
+            "policy": "faulted",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt_in_force_before": true,
+        "halt": {
+            "writes": false
+        },
+        "publish": {
+            "sequence": 45,
+            "previous": "64dd109d3dceae6c3dbb25b40c8c2a9ec3a3ba1776680832ad7fe2b6a8ecb553",
+            "observed": {
+                "multi": "7b0696591667779aee9ab919468691c6ae589fd2fa65d6a6c840b1c91227676c",
+                "policy": "54c69058f43bb6405fe1d2a418f7e2ffeac0e1d764ef7bef16965f7f29674f6d",
+                "super": "81acad84a312753ec7f9ca59b0d9e42bf2b1e8981abc164cb9510ec77e999b42"
+            },
+            "boot": null,
+            "stop": false
+        },
+        "clears": false,
+        "relay": {
+            "writes": [
+                "multi",
+                "policy",
+                "super"
+            ],
+            "bytes_of": "stores/policy/halt",
+            "own_halt_written": false
+        }
+    }
+}

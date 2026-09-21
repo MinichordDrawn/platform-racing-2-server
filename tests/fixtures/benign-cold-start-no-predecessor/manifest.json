@@ -1,0 +1,75 @@
+{
+    "fixture": "benign-cold-start-no-predecessor",
+    "description": "The reader has never run: no heartbeat folder of its own and no basis. The others are present. Every verdict is unknown; unknown is not a fault. The reader's first heartbeat is sequence 1 with a boot record.",
+    "rules": [
+        "SPEC 7",
+        "SPEC 8.1 V5"
+    ],
+    "reader": "web",
+    "reader_booted": true,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "unknown",
+            "policy": "unknown",
+            "super": "unknown"
+        },
+        "failing": [],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": false
+        },
+        "publish": {
+            "sequence": 1,
+            "previous": null,
+            "observed": {
+                "multi": "99728c17b3b6098c5b1670fdfbfd5d24ac8144fe2d6c92258236d04f0ce052dc",
+                "policy": "861afd47f4a157c66f08ecdff8f771942f291dd245c1d6cb98fb3c107c29edc9",
+                "super": "7a9016efd4e9f3db04427191759c68e48d3637e6437c3f1140c96bdeed95b8b1"
+            },
+            "boot": {
+                "resumed_from": null
+            },
+            "stop": false
+        }
+    }
+}

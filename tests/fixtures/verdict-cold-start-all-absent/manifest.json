@@ -1,0 +1,84 @@
+{
+    "fixture": "verdict-cold-start-all-absent",
+    "description": "Cold start of the whole ring seen from web: no member has a heartbeat folder. Every verdict is absent, member-present fails for each, and the halt names the first in identity order.",
+    "rules": [
+        "SPEC 7",
+        "SPEC 8.1 V2"
+    ],
+    "reader": "web",
+    "reader_booted": true,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "absent",
+            "policy": "absent",
+            "super": "absent"
+        },
+        "failing": [
+            {
+                "check": "member-present",
+                "subject": "multi"
+            },
+            {
+                "check": "member-present",
+                "subject": "policy"
+            },
+            {
+                "check": "member-present",
+                "subject": "super"
+            }
+        ],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": true,
+            "reason": "member-present",
+            "subject": "multi"
+        },
+        "publish": {
+            "sequence": 1,
+            "previous": null,
+            "observed": {
+                "multi": null,
+                "policy": null,
+                "super": null
+            },
+            "boot": {
+                "resumed_from": null
+            },
+            "stop": false
+        }
+    }
+}

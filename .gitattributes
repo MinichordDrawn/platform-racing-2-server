@@ -1,1 +1,10 @@
 *.sh text eol=lf
+
+# The fixture set is bytes, not text.
+#
+# Every heartbeat, fault and halt file in it is hashed by the manifest that
+# describes it, and several manifests carry the expected hash of a specific
+# file. A line-ending conversion on checkout changes those bytes, so the whole
+# set would fail in a fresh clone on a platform that converts -- for a reason
+# nothing in the failure would point at. Checked out exactly as committed.
+tests/fixtures/** -text

@@ -1,0 +1,84 @@
+{
+    "fixture": "benign-dead-member-old-account",
+    "description": "multi died after 40; its last heartbeat's account of the others points at entries they have since pruned. multi is stale (a fault) and, because its account is not current, it is not judged under I1(b). A death must not fire a compromise.",
+    "rules": [
+        "SPEC 11.1 I1(b)",
+        "SPEC 16 G7"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "stale",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "member-fresh",
+                "subject": "multi"
+            }
+        ],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": true,
+            "reason": "member-fresh",
+            "subject": "multi"
+        },
+        "publish": {
+            "sequence": 45,
+            "previous": "1fe7985cc64e604ed993d0da7387751b63aed508796be7e8296f06b3ee1214ca",
+            "observed": {
+                "multi": "0e2c10feac0e74bcb48addb1fc7c4eb607758bc5508d01095e88db6bc989ede9",
+                "policy": "212d77a6cf93eed7ebe3c406f2e709a90d87f06d86278c4e21c9c69eaceb7726",
+                "super": "918fbe1d7d8c7887335728ef985e23499da5e140ea492f9d5c9d9395fecfcd1f"
+            },
+            "boot": null,
+            "stop": false
+        }
+    },
+    "unchanged": {
+        "multi": 25
+    }
+}

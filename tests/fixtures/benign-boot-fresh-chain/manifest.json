@@ -1,0 +1,74 @@
+{
+    "fixture": "benign-boot-fresh-chain",
+    "description": "multi ran for the first time this cycle: one entry, sequence 1, previous null, boot with resumed_from null. The reader's basis for multi is null (it was absent last cycle), so the verdict is unknown and nothing fails.",
+    "rules": [
+        "SPEC 7",
+        "SPEC 8.1 V5"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "unknown",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": false
+        },
+        "publish": {
+            "sequence": 45,
+            "previous": "a9c46fd11cda0e1613f6361aa85fce61f44dc3db0428ebb70a08691513ee4bde",
+            "observed": {
+                "multi": "d55814621212c39f65490995f80f0adcdd4bd6a386d7d0936f95f4fb829c122b",
+                "policy": "30f3c56297efc89bba6002b26c1709ed4244979cf0044c8f1db0de89f8ab72b1",
+                "super": "eadeae61ca87adbdf634f6b2e2b99f0c2d25fbb2ca228f83882da61a91285d18"
+            },
+            "boot": null,
+            "stop": false
+        }
+    }
+}

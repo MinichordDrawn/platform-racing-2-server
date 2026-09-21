@@ -1,0 +1,81 @@
+{
+    "fixture": "verdict-retired-super",
+    "description": "The super observer stopped cleanly at 42. A retired super observer is not verifying the stores: member-fresh fails for super.",
+    "rules": [
+        "SPEC 8.1 V4",
+        "SPEC 8.2"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "retired"
+        },
+        "failing": [
+            {
+                "check": "member-fresh",
+                "subject": "super"
+            }
+        ],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": true,
+            "reason": "member-fresh",
+            "subject": "super"
+        },
+        "publish": {
+            "sequence": 45,
+            "previous": "c9af55478eca5cbf72070fb80fe97f736f0c796203cc240cacce013a9ee204f4",
+            "observed": {
+                "multi": "8b5a6ff1c947d598352fa69593144dd829be63f9e41e707b8149394dc618d0c7",
+                "policy": "8babe1d975c28b6f32fd1b871b3131d0bf90449b5eff74266be3debb9dc2c943",
+                "super": "ab6fda720fc13c0d7d2c3fc6335f1c80102aa5b55066ebc48c6e53e7077125d0"
+            },
+            "boot": null,
+            "stop": false
+        }
+    }
+}

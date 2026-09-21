@@ -1,0 +1,75 @@
+{
+    "fixture": "healthy-young-chain",
+    "description": "multi first ran two cycles ago: a window of two entries starting at sequence 1 with a boot record. The reader recorded sequence 1 last cycle; it is in the chain, so multi is alive.",
+    "rules": [
+        "SPEC 6.1 C7",
+        "SPEC 7",
+        "SPEC 8.1 V7"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "alive",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": false
+        },
+        "publish": {
+            "sequence": 45,
+            "previous": "cc2dfd666a9865cfd516e3156c0d9e4a5471ff9b1c91aea77e8ddb00638e7636",
+            "observed": {
+                "multi": "7c5987c0f713369c1e63904fc8f8594a84eb869aae665d0a37b2a1e99e5040d5",
+                "policy": "929191811005308e8483a8ba7f0ac88be0371d16571ce13a27cfeccd5e72bf38",
+                "super": "d50a52d8df583d2e3fdf48a3b04345cca695bed4a744543630f8df0806f7b763"
+            },
+            "boot": null,
+            "stop": false
+        }
+    }
+}

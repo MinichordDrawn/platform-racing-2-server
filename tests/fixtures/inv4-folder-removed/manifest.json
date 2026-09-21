@@ -1,0 +1,84 @@
+{
+    "fixture": "inv4-folder-removed",
+    "description": "The reader's basis holds a hash for multi and multi's heartbeat folder is gone. Absent, I4 first, then member-present. The halt names I4.",
+    "rules": [
+        "SPEC 8.1 V2",
+        "SPEC 11.1 I4"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "absent",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "I4",
+                "subject": "multi"
+            },
+            {
+                "check": "member-present",
+                "subject": "multi"
+            }
+        ],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": true,
+            "reason": "I4",
+            "subject": "multi"
+        },
+        "publish": {
+            "sequence": 45,
+            "previous": "64dd109d3dceae6c3dbb25b40c8c2a9ec3a3ba1776680832ad7fe2b6a8ecb553",
+            "observed": {
+                "multi": null,
+                "policy": "54c69058f43bb6405fe1d2a418f7e2ffeac0e1d764ef7bef16965f7f29674f6d",
+                "super": "81acad84a312753ec7f9ca59b0d9e42bf2b1e8981abc164cb9510ec77e999b42"
+            },
+            "boot": null,
+            "stop": false
+        }
+    }
+}

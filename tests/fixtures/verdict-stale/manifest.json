@@ -1,0 +1,84 @@
+{
+    "fixture": "verdict-stale",
+    "description": "multi stopped writing after sequence 42 with no stop marker (a death). The reader's two most recent heartbeats both recorded multi's 42, which meets STALE_AFTER (ceil(10/10) + slack 1 = 2). Stale; member-fresh fails.",
+    "rules": [
+        "SPEC 8",
+        "SPEC 8.1 V6"
+    ],
+    "reader": "web",
+    "reader_booted": false,
+    "parameters": {
+        "window": 4,
+        "stale_slack_cycles": 1,
+        "staging_stale_after_seconds": 60,
+        "max_heartbeat_bytes": 8192,
+        "max_fault_bytes": 8192,
+        "max_halt_bytes": 8192,
+        "now": "2026-09-20T10:07:25Z"
+    },
+    "directories": [
+        "stores/multi",
+        "stores/multi/copy",
+        "stores/multi/copy-super",
+        "stores/multi/copy-super/heartbeat",
+        "stores/multi/copy/heartbeat",
+        "stores/multi/halts",
+        "stores/multi/heartbeat",
+        "stores/policy",
+        "stores/policy/copy",
+        "stores/policy/copy-super",
+        "stores/policy/copy-super/heartbeat",
+        "stores/policy/copy/heartbeat",
+        "stores/policy/halts",
+        "stores/policy/heartbeat",
+        "stores/super",
+        "stores/super/copy-multi",
+        "stores/super/copy-multi/heartbeat",
+        "stores/super/copy-policy",
+        "stores/super/copy-policy/heartbeat",
+        "stores/super/copy-web",
+        "stores/super/copy-web/heartbeat",
+        "stores/super/halts",
+        "stores/super/heartbeat",
+        "stores/web",
+        "stores/web/copy",
+        "stores/web/copy-super",
+        "stores/web/copy-super/heartbeat",
+        "stores/web/copy/heartbeat",
+        "stores/web/halts",
+        "stores/web/heartbeat"
+    ],
+    "expect": {
+        "verdicts": {
+            "multi": "stale",
+            "policy": "alive",
+            "super": "alive"
+        },
+        "failing": [
+            {
+                "check": "member-fresh",
+                "subject": "multi"
+            }
+        ],
+        "halt_in_force_before": false,
+        "halt": {
+            "writes": true,
+            "reason": "member-fresh",
+            "subject": "multi"
+        },
+        "publish": {
+            "sequence": 45,
+            "previous": "270ec54312a9d276913baf74bb4d54d4e97ba86312b2a72d4fcb58949637e536",
+            "observed": {
+                "multi": "e2432c0ea5f31a63d196d359e58c1f33b2d148297b3b8ddff538d4144ab7de27",
+                "policy": "cb037b1b87564686b68e24b7c612a9450fa508ac7d5aedf60b8cd729232edaa6",
+                "super": "080c43e9ff4db69911089533a6f65454bc16fe759838e9c09bb0e5b8a50d0d00"
+            },
+            "boot": null,
+            "stop": false
+        }
+    },
+    "unchanged": {
+        "multi": 25
+    }
+}
