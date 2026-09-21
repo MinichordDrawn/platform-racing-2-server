@@ -156,7 +156,11 @@ function code_manifest(): array
 // rather than implied. The weaker standard is not nothing: it still catches
 // the file changing under a running container. What it cannot do is establish
 // what the file was before this observer started.
-const CONTAINER_SUPPLIED_AT_DEPLOYMENT = array('/pr2/common/env.php');
+// Empty here, and that is this container's own fact rather than a copy of
+// the others'. This image ships only `observers/super/`, so there is no
+// `/pr2/common/env.php` in the manifest it takes and nothing for the list
+// to name. Naming it anyway stated something untrue of this image.
+const CONTAINER_SUPPLIED_AT_DEPLOYMENT = array();
 
 // Where the build leaves the manifest of the image it produced.
 //

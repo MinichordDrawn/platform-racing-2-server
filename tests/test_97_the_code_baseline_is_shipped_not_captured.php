@@ -69,9 +69,43 @@ foreach (glob(REPO . '/observers/*/container.php') as $file) {
 
     ok(strpos($src, 'CONTAINER_SUPPLIED_AT_DEPLOYMENT') !== false,
         "$name names what the deployment supplies rather than the image");
-    ok(preg_match("/CONTAINER_SUPPLIED_AT_DEPLOYMENT = array\('\/pr2\/common\/env\.php'\)/", $src) === 1,
-        "and it is env.php, and only env.php");
 }
+
+// And each list names only paths that observer's own image actually holds.
+//
+// The list is a fact about one container, and it was written as one literal
+// copied into all four. `super` ships only `observers/super/`, so naming
+// `/pr2/common/env.php` there stated something untrue of its image: a path in
+// no manifest it takes, held to a weaker standard it never reaches. Nothing
+// was weaker for it, because the loop skips what the baseline does not hold --
+// but it is the shape this project keeps finding, one fact stated in several
+// places and true in only some of them.
+//
+// Asked of the constants rather than the text, so the check is about what each
+// observer holds rather than how it spells it.
+require_once REPO . '/observers/multi/container.php';
+require_once REPO . '/observers/policy/container.php';
+require_once REPO . '/observers/super/container.php';
+
+$outside = array();
+foreach (array('web', 'multi', 'policy', 'super') as $name) {
+    $supplied = constant('pr2obs\\' . $name . '\\CONTAINER_SUPPLIED_AT_DEPLOYMENT');
+    $paths    = constant('pr2obs\\' . $name . '\\CONTAINER_CODE_PATHS');
+
+    foreach ($supplied as $path) {
+        $inside = false;
+        foreach ($paths as $root) {
+            if ($path === $root || strpos($path, rtrim($root, '/') . '/') === 0) {
+                $inside = true;
+                break;
+            }
+        }
+        if (!$inside) {
+            $outside[] = "$name declares $path, which is in none of its code paths";
+        }
+    }
+}
+is_same($outside, array(), 'every deployment-supplied path is one its own image holds');
 
 // --- a baseline it cannot read is a finding --------------------------------
 //
