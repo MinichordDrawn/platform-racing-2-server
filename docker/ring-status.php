@@ -541,9 +541,9 @@ function render_lines(array $rates = array()): array
         : c($matching . ' of ' . $total . ' match', 'amber');
 
     $L[] = '  ' . pad(c('COPIES', 'grey'), 10) . pad($summary, 18)
-        . c('each member writes its heartbeat a second time into another member\'s folder,', 'grey');
+        . c('each member writes its heartbeat a second time into another member\'s', 'grey');
     $L[] = '  ' . str_repeat(' ', 10)
-        . c('and that member checks it against the original. Nobody checks their own.', 'grey');
+        . c('folder, and that member checks the copy against the original', 'grey');
     $L[] = '';
 
     foreach ($rows as $r) {
