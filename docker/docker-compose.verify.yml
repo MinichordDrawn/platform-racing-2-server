@@ -22,8 +22,6 @@ services:
     ports: !override []
   policy:
     ports: !override []
-  adminer:
-    ports: !override []
 
   # Said explicitly as well as enforced below, so that reading this file tells
   # you the proxy is not talking to PR2Hub without having to know what

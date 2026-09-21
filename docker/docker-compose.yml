@@ -407,7 +407,36 @@ services:
       MYSQL_DATABASE: pr2
       MYSQL_USER: pr2
       MYSQL_PASSWORD: pr2
-      MYSQL_ROOT_PASSWORD: root
+      # Required from the environment, with no default.
+      #
+      # The application's own password is the one above, and a deployment that
+      # leaves it alone is stopped by the boot check, because it is an
+      # env.example value and that check refuses to start on those. The root
+      # password had no such cover: it was the literal `root`, it is what the
+      # migration runner authenticates with, and a deployment that changed the
+      # first and not the second still had a known root credential on the
+      # network the database console used to bridge to the outside.
+      #
+      # `:?` means compose refuses to start at all when the value is absent, so
+      # supplying it is part of setting the deployment up rather than something
+      # to remember.
+      #
+      # **It does not change the password of a database that already exists.**
+      # The image applies this only while initialising an empty data directory;
+      # on an existing volume it is read, ignored, and whatever root was set to
+      # at first start remains. Setting it on a running deployment therefore
+      # does nothing at all, and looks like it did something, which is worse
+      # than the literal it replaced would have been if left alone.
+      #
+      # What catches the mismatch is the migration runner below, which
+      # authenticates as root with this same value: if the two disagree, the
+      # migrations fail to connect and say so. That is the only automatic
+      # detection there is, and it only runs when migrations run.
+      #
+      # Changing root on a database that already exists is an ALTER USER
+      # against that database, done deliberately, and then this value is what
+      # it was changed to.
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set a root password for the database}
     volumes:
       - mysql-data:/var/lib/mysql
 
@@ -424,7 +453,9 @@ services:
     environment:
       LIQUIBASE_URL: jdbc:mysql://mysql/pr2
       LIQUIBASE_USERNAME: root
-      LIQUIBASE_PASSWORD: root
+      # The same credential as the database, required the same way, so the two
+      # cannot drift and neither can be left at a value the repository states.
+      LIQUIBASE_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set a root password for the database}
       LIQUIBASE_CHANGELOG: /liquibase/changelog.yaml
     volumes:
       - ../liquibase:/liquibase
@@ -433,15 +464,6 @@ services:
       - mysql
     restart: 'no'
 
-  adminer:
-    image: adminer
-    restart: always
-    security_opt:
-      - no-new-privileges:true
-    ports:
-      - 8081:8080
-    depends_on:
-      - mysql
 
 volumes:
   store-multi:
