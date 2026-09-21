@@ -1,5 +1,15 @@
 #!/bin/sh
 
+# Who each process below runs as, said once.
+#
+# This container starts as root for one reason: so that it can stop being root.
+# The observer runs as pr2obs and the work as www-data, and because they are
+# different users the work cannot write the files its own observer publishes,
+# nor signal the observer beside it. Mode 0755 on a pr2obs-owned store is
+# exactly "read yes, write no" -- and the gate still reads it on every request.
+#
+# The last line execs, which replaces this shell. Nothing root is left running.
+
 # The data directories and the symlinks that reach them from the served tree
 # are made when the image is built, not here. Nothing this script does writes
 # into /pr2/http_server.
@@ -22,7 +32,7 @@
 # observer that loads the application shares code with the other
 # observers through the back door, and can be stopped by a bug in the
 # very thing it is watching.
-php -d auto_prepend_file= /pr2/observers/web/run.php &
+setpriv --reuid=pr2obs --regid=pr2obs --clear-groups php -d auto_prepend_file= /pr2/observers/web/run.php &
 
 # The first-write barrier: nothing works until the observer above has written a
 # heartbeat the gate accepts and nothing anywhere has halted.
@@ -41,7 +51,7 @@ php -d auto_prepend_file= /pr2/observers/web/run.php &
 # Run with the prepend disabled for the same reason as the observer, and one
 # more: config.php refuses by exiting, so a barrier behind it would exit
 # instead of waiting, which is the one thing it is for.
-php -d auto_prepend_file= /pr2/common/observer_gate_wait.php
+setpriv --reuid=www-data --regid=www-data --clear-groups php -d auto_prepend_file= /pr2/common/observer_gate_wait.php
 
 # The two warm-up runs generate the server status and level list files so the
 # site is not empty before the scheduler's first minute. Both are idempotent
@@ -50,7 +60,19 @@ php -d auto_prepend_file= /pr2/common/observer_gate_wait.php
 # They are the same jobs cron runs and go the same way: through the wrapper,
 # which reads the observer network itself and records a refusal as a run rather
 # than vanishing.
-php -d auto_prepend_file= /pr2/common/cron/run.php minute
-php -d auto_prepend_file= /pr2/common/cron/run.php hourly
+setpriv --reuid=www-data --regid=www-data --clear-groups php -d auto_prepend_file= /pr2/common/cron/run.php minute
+setpriv --reuid=www-data --regid=www-data --clear-groups php -d auto_prepend_file= /pr2/common/cron/run.php hourly
 
-exec apache2-foreground
+
+# Apache's logs, onto this container's output.
+#
+# Apache writes them to real files because it cannot open the container's stdio
+# once it has dropped from root (see the note in the dockerfile). This forwards
+# them, and it can because it is started here, before the drop, and writes the
+# descriptor it inherited rather than re-opening one.
+#
+# -n 0 so a restart does not replay the file, -q so the two streams are not
+# interleaved with headers, -F so a rotation or truncation is followed.
+setpriv --reuid=www-data --regid=www-data --clear-groups     tail -n 0 -q -F /var/log/apache2/error.log /var/log/apache2/access.log &
+
+exec setpriv --reuid=www-data --regid=www-data --clear-groups apache2-foreground

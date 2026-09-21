@@ -11,9 +11,11 @@
 # whose code has been rewritten. Here the write is refused by the mount, and
 # the rule is true rather than agreed.
 #
-# A rw result also proves ownership, not only the flag: these containers run as
-# www-data, so a writable mount whose volume arrived owned by root would show
-# up here as refused.
+# A rw result also proves ownership, not only the flag -- and since the
+# observer and the work now run as different users inside one container,
+# ownership is doing more of the work than it used to. The observer owns the
+# store tree and the work does not, so the second half of this script is the
+# half that proves the work cannot forge what its own observer publishes.
 #
 # It publishes nothing and reaches nothing -- the verify override removes every
 # published port and puts the containers on a network with no route off the
@@ -53,22 +55,22 @@ fail=0
 echo "proving the store write matrix"
 echo
 
-# cron and pr2hub-proxy are here as readers. Neither holds an observer and
-# neither writes anything into the tree, but both read it before they work --
-# so the tree is mounted in them and they are held to the matrix from the other
-# side: every path read-only, no exceptions.
+# Two positions per container, not one.
 #
-# cron is also the one container that runs as root, which makes its result
-# worth having rather than assuming: a read-only mount is refused by the kernel
-# whoever asks, and this is where that stops being a claim. pr2hub-proxy is the
-# one container whose reader is not written in PHP, so its result is also the
-# only proof that the Go gate is reading a tree it cannot alter.
-for svc in web multi policy super cron pr2hub-proxy; do
-    echo "  $svc"
-
-    # One container per service rather than one per path: forty-two containers
-    # would take minutes and prove nothing extra.
-    probe=$($C run --rm --no-deps --entrypoint sh "$svc" -c '
+# Three of these hold an observer and the work it watches, and until now they
+# shared a user -- so the work could write every file its own observer
+# published. They are separate users now, which means the matrix has two
+# halves and the second is the point:
+#
+#   as the observer (uid 10002)   the matrix below, path by path
+#   as the work     (uid 33)      read-only everywhere, no exceptions
+#
+# The second half is enforced by file ownership rather than by a mount flag.
+# That is a weaker kind of enforcement in one specific way -- a root process
+# inside the container could override it -- which is why the entrypoints exec
+# away from root and leave none running. Both halves are asked of the kernel
+# here rather than assumed from the compose file.
+probe_paths='
         for p in /stores/web /stores/web/copy /stores/web/copy-super /stores/web/halts \
                  /stores/multi /stores/multi/copy /stores/multi/copy-super /stores/multi/halts \
                  /stores/policy /stores/policy/copy /stores/policy/copy-super /stores/policy/halts \
@@ -83,7 +85,16 @@ for svc in web multi policy super cron pr2hub-proxy; do
                 echo "ro $p"
             fi
         done
-    ' 2>/dev/null | tr -d '\r')
+'
+
+# --- the observer's position ----------------------------------------------
+#
+# One container per service rather than one per path: forty-two containers
+# would take minutes and prove nothing extra.
+for svc in web multi policy super; do
+    echo "  $svc, as the observer"
+
+    probe=$($C run --rm --no-deps --user 10002:10002 --entrypoint sh "$svc" -c "$probe_paths" 2>/dev/null | tr -d '\r')
 
     echo "$MATRIX" | while IFS='|' read -r path writers; do
         [ -z "$path" ] && continue
@@ -105,10 +116,37 @@ for svc in web multi policy super cron pr2hub-proxy; do
     echo
 done
 
-# The while loop above runs in a subshell, so the counters do not survive it.
-# Count from the output instead, which is what a reader of this script would
-# check anyway.
-# Counted by matching the indented result lines rather than the words, because
-# a summary that says "grep for FAIL" is a summary that shows up in the grep.
+# --- the work's position, and every other reader --------------------------
+#
+# None of these may write anywhere in the tree. web, multi and policy are the
+# work beside an observer; cron runs the scheduled jobs and holds no observer;
+# pr2hub-proxy is the one reader not written in PHP, so its result is also the
+# only proof that the Go gate reads a tree it cannot alter.
+for entry in "web:33:33" "multi:33:33" "policy:33:33" "cron:" "pr2hub-proxy:"; do
+    svc=${entry%%:*}
+    as=${entry#*:}
+
+    if [ -n "$as" ]; then
+        echo "  $svc, as the work"
+        probe=$($C run --rm --no-deps --user "$as" --entrypoint sh "$svc" -c "$probe_paths" 2>/dev/null | tr -d '\r')
+    else
+        echo "  $svc, which holds no observer"
+        probe=$($C run --rm --no-deps --entrypoint sh "$svc" -c "$probe_paths" 2>/dev/null | tr -d '\r')
+    fi
+
+    echo "$MATRIX" | while IFS='|' read -r path writers; do
+        [ -z "$path" ] && continue
+
+        got=$(echo "$probe" | awk -v p="$path" '$2 == p {print $1}')
+        [ -z "$got" ] && got="(no result)"
+
+        if [ "$got" = "ro" ]; then
+            printf '    PASS  %-32s %s\n' "$path" "ro"
+        else
+            printf '    FAIL  %-32s expected ro, got %s\n' "$path" "$got"
+        fi
+    done
+    echo
+done
 echo "For totals, pipe through: grep -c '^    PASS' and grep -c '^    FAIL'."
 echo "Or read the lines above: every path should match its column in SPEC 2."

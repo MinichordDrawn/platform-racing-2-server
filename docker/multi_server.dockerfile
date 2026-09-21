@@ -39,12 +39,29 @@ RUN mkdir -p /pr2/data/levels /pr2/data/replays /pr2/data/files /pr2/data/emblem
 # unwritable to a container that no longer runs as root.
 RUN mkdir -p /pr2/shared && chown -R www-data:www-data /pr2/shared
 
+# The observer's own user.
+#
+# The observer and the work it watches share this container, and they shared a
+# user: a PHP request could create, overwrite or delete any file its own
+# observer published, and could signal the observer beside it. Every peer test
+# is a property of the files, so forged bytes in the right shape are bytes no
+# reader can tell from the real ones -- and signing does not help while the two
+# share a user, because a key the observer can read is a key the work can read.
+#
+# A different uid is what makes "read yes, write no" true: the store tree below
+# belongs to this user at mode 0755, so the work reads it -- the gate reads it
+# on every request -- and cannot write it, and cannot signal it either.
+#
+# The id is pinned because every container's observer writes into the shared
+# halts and copy directories, so they must all be the same user.
+RUN adduser --system --no-create-home --uid 10002 --group pr2obs
+
 RUN mkdir -p /stores/web/copy /stores/web/copy-super /stores/web/halts \
              /stores/multi/copy /stores/multi/copy-super /stores/multi/halts \
              /stores/policy/copy /stores/policy/copy-super /stores/policy/halts \
              /stores/super/halts \
              /stores/super/copy-web /stores/super/copy-multi /stores/super/copy-policy \
-    && chown -R www-data:www-data /stores
+    && chown -R pr2obs:pr2obs /stores
 
 USER www-data
 
@@ -73,7 +90,13 @@ RUN php -d auto_prepend_file= -r 'require "/pr2/observers/multi/container.php"; 
         file_put_contents("/pr2/.container-baseline", json_encode(array( \
             "code" => \pr2obs\multi\code_manifest(), "extensions" => $e))); ' \
     && chmod 0444 /pr2/.container-baseline
-USER www-data
+# Root, and only so that the entrypoint can stop being root.
+#
+# The startup script launches the observer as pr2obs and then execs the work as
+# www-data, which replaces this shell -- so the running container holds two
+# processes and neither of them is root. Compose states the same thing beside
+# the two capabilities that dropping needs.
+USER root
 
 # Run the gameserver, with its observer alongside it
 ENTRYPOINT []

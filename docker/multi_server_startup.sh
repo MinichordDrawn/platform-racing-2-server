@@ -1,5 +1,15 @@
 #!/bin/sh
 
+# Who each process below runs as, said once.
+#
+# This container starts as root for one reason: so that it can stop being root.
+# The observer runs as pr2obs and the work as www-data, and because they are
+# different users the work cannot write the files its own observer publishes,
+# nor signal the observer beside it. Mode 0755 on a pr2obs-owned store is
+# exactly "read yes, write no" -- and the gate still reads it on every request.
+#
+# The last line execs, which replaces this shell. Nothing root is left running.
+
 # The observer, as its own process on the same host as the work it watches.
 #
 # Not a tick inside the work's own loop: if that loop wedges, a tick inside it
@@ -12,7 +22,7 @@
 # one too: env.php, the database connection, the S3 client. An observer that
 # loads the application shares code with the other observers through the back
 # door, and can be stopped by a bug in the very thing it is watching.
-php -d auto_prepend_file= /pr2/observers/multi/run.php &
+setpriv --reuid=pr2obs --regid=pr2obs --clear-groups php -d auto_prepend_file= /pr2/observers/multi/run.php &
 
 # The first-write barrier: the game server does not start until the observer
 # above has written a heartbeat the gate accepts and nothing anywhere has
@@ -33,8 +43,8 @@ php -d auto_prepend_file= /pr2/observers/multi/run.php &
 # Run with the prepend disabled for the same reason as the observer, and one
 # more: config.php refuses by exiting, so a barrier behind it would exit
 # instead of waiting, which is the one thing it is for.
-php -d auto_prepend_file= /pr2/common/observer_gate_wait.php
+setpriv --reuid=www-data --regid=www-data --clear-groups php -d auto_prepend_file= /pr2/common/observer_gate_wait.php
 
 # the game server is the container's foreground process, so if it exits the container
 # exits and the observer goes with it.
-exec php /pr2/multiplayer_server/pr2.php 1 true
+exec setpriv --reuid=www-data --regid=www-data --clear-groups php /pr2/multiplayer_server/pr2.php 1 true

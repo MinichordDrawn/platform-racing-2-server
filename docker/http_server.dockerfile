@@ -87,6 +87,21 @@ RUN touch /var/log/cron.log \
 
 COPY docker/cron_startup.sh /cron_startup.sh
 
+# Apache's logs are real files, not the image's symlinks to the container's
+# stdio.
+#
+# Those symlinks point at /dev/stderr, which resolves to this container's own
+# stderr -- and that belongs to root, because the container starts as root in
+# order to drop. Apache re-opens its log *by path* rather than writing the
+# descriptor it inherited, so once it is www-data it cannot open it and refuses
+# to start: "could not open error log file /dev/stderr".
+#
+# Permission is checked when a file is opened, not when it is written. So the
+# way out is the one the scheduler already uses for exactly this reason: a real
+# file the unprivileged user owns, and something started before the drop that
+# forwards it to the container's output over a descriptor it inherited.
+RUN rm -f /var/log/apache2/error.log /var/log/apache2/access.log           /var/log/apache2/other_vhosts_access.log     && touch /var/log/apache2/error.log /var/log/apache2/access.log     && chown www-data:www-data /var/log/apache2/error.log /var/log/apache2/access.log     && chmod 0664 /var/log/apache2/error.log /var/log/apache2/access.log
+
 # Enable reverse proxy support for same-origin PR2Hub and WebSocket forwarding.
 RUN a2enmod proxy proxy_http proxy_wstunnel env \
     && a2enconf pr2hub_proxy
@@ -127,12 +142,29 @@ RUN mkdir -p /var/run/apache2 /var/lock/apache2 \
 # unwritable to a container that no longer runs as root.
 RUN mkdir -p /pr2/shared && chown -R www-data:www-data /pr2/shared
 
+# The observer's own user.
+#
+# The observer and the work it watches share this container, and they shared a
+# user: a PHP request could create, overwrite or delete any file its own
+# observer published, and could signal the observer beside it. Every peer test
+# is a property of the files, so forged bytes in the right shape are bytes no
+# reader can tell from the real ones -- and signing does not help while the two
+# share a user, because a key the observer can read is a key the work can read.
+#
+# A different uid is what makes "read yes, write no" true: the store tree below
+# belongs to this user at mode 0755, so the work reads it -- the gate reads it
+# on every request -- and cannot write it, and cannot signal it either.
+#
+# The id is pinned because every container's observer writes into the shared
+# halts and copy directories, so they must all be the same user.
+RUN adduser --system --no-create-home --uid 10002 --group pr2obs
+
 RUN mkdir -p /stores/web/copy /stores/web/copy-super /stores/web/halts \
              /stores/multi/copy /stores/multi/copy-super /stores/multi/halts \
              /stores/policy/copy /stores/policy/copy-super /stores/policy/halts \
              /stores/super/halts \
              /stores/super/copy-web /stores/super/copy-multi /stores/super/copy-policy \
-    && chown -R www-data:www-data /stores
+    && chown -R pr2obs:pr2obs /stores
 
 # The manifest of what this image contains, taken from the code that went into
 # it and shipped inside it.
@@ -155,7 +187,13 @@ RUN php -d auto_prepend_file= -r 'require "/pr2/observers/web/container.php"; \
             "code" => \pr2obs\web\code_manifest(), "extensions" => $e))); ' \
     && chmod 0444 /pr2/.container-baseline
 
-USER www-data
+# Root, and only so that the entrypoint can stop being root.
+#
+# The startup script launches the observer as pr2obs and then execs the work as
+# www-data, which replaces this shell -- so the running container holds two
+# processes and neither of them is root. Compose states the same thing beside
+# the two capabilities that dropping needs.
+USER root
 
 ENTRYPOINT []
 CMD ["/http_server_startup.sh"]

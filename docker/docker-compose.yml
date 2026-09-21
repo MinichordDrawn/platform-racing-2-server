@@ -4,8 +4,27 @@ services:
     build:
       context: ../
       dockerfile: docker/http_server.dockerfile
-    # Apache listens on 8080 inside, so nothing here needs privilege.
-    user: www-data
+    # Apache listens on 8080 inside, so nothing here binds a privileged port.
+    #
+    # Root at start, and root for nothing else.
+    #
+    # The observer and the work in this container shared a user, so the work
+    # could write any file its own observer published and could signal the
+    # observer beside it. They now run as pr2obs and www-data, and the store
+    # tree belongs to pr2obs at mode 0755 -- read yes, write no.
+    #
+    # Dropping a user needs the capability to change one, which cap_drop: ALL
+    # takes away. These two give it back and nothing else: a named volume takes
+    # its ownership from the image that first mounts it, so no CHOWN is needed
+    # either. The entrypoint execs the work as www-data, so no root process
+    # survives the start -- unlike cron below, where root persists because cron
+    # must keep spawning jobs.
+    user: "0:0"
+    cap_add:
+      # Used once, by the entrypoint, to put the observer and the work on
+      # different users. Nothing else here changes user.
+      - SETUID
+      - SETGID
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -236,7 +255,25 @@ services:
     build:
       context: ../
       dockerfile: docker/multi_server.dockerfile
-    user: www-data
+    # Root at start, and root for nothing else.
+    #
+    # The observer and the work in this container shared a user, so the work
+    # could write any file its own observer published and could signal the
+    # observer beside it. They now run as pr2obs and www-data, and the store
+    # tree belongs to pr2obs at mode 0755 -- read yes, write no.
+    #
+    # Dropping a user needs the capability to change one, which cap_drop: ALL
+    # takes away. These two give it back and nothing else: a named volume takes
+    # its ownership from the image that first mounts it, so no CHOWN is needed
+    # either. The entrypoint execs the work as www-data, so no root process
+    # survives the start -- unlike cron below, where root persists because cron
+    # must keep spawning jobs.
+    user: "0:0"
+    cap_add:
+      # Used once, by the entrypoint, to put the observer and the work on
+      # different users. Nothing else here changes user.
+      - SETUID
+      - SETGID
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -325,7 +362,25 @@ services:
     # leaving the ring a member short. Without a restart policy a halt that
     # lifted would leave this container down for good.
     restart: always
-    user: www-data
+    # Root at start, and root for nothing else.
+    #
+    # The observer and the work in this container shared a user, so the work
+    # could write any file its own observer published and could signal the
+    # observer beside it. They now run as pr2obs and www-data, and the store
+    # tree belongs to pr2obs at mode 0755 -- read yes, write no.
+    #
+    # Dropping a user needs the capability to change one, which cap_drop: ALL
+    # takes away. These two give it back and nothing else: a named volume takes
+    # its ownership from the image that first mounts it, so no CHOWN is needed
+    # either. The entrypoint execs the work as www-data, so no root process
+    # survives the start -- unlike cron below, where root persists because cron
+    # must keep spawning jobs.
+    user: "0:0"
+    cap_add:
+      # Used once, by the entrypoint, to put the observer and the work on
+      # different users. Nothing else here changes user.
+      - SETUID
+      - SETGID
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -401,7 +456,10 @@ services:
     build:
       context: ../
       dockerfile: docker/super_observer.dockerfile
-    user: www-data
+    # The observer's own user. There is no work in this container to separate
+    # it from, so nothing here changes user and nothing needs the capability
+    # to.
+    user: "10002:10002"
     security_opt:
       - no-new-privileges:true
     cap_drop:

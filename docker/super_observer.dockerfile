@@ -26,12 +26,29 @@ RUN docker-php-ext-install pcntl
 # observer runs as, so a named volume mounted over one inherits that ownership
 # rather than arriving owned by root. No heartbeat directories: a store root
 # without one is how a reader concludes nothing ever ran there.
+# The observer's own user.
+#
+# The observer and the work it watches share this container, and they shared a
+# user: a PHP request could create, overwrite or delete any file its own
+# observer published, and could signal the observer beside it. Every peer test
+# is a property of the files, so forged bytes in the right shape are bytes no
+# reader can tell from the real ones -- and signing does not help while the two
+# share a user, because a key the observer can read is a key the work can read.
+#
+# A different uid is what makes "read yes, write no" true: the store tree below
+# belongs to this user at mode 0755, so the work reads it -- the gate reads it
+# on every request -- and cannot write it, and cannot signal it either.
+#
+# The id is pinned because every container's observer writes into the shared
+# halts and copy directories, so they must all be the same user.
+RUN adduser --system --no-create-home --uid 10002 --group pr2obs
+
 RUN mkdir -p /stores/web/copy /stores/web/copy-super /stores/web/halts \
              /stores/multi/copy /stores/multi/copy-super /stores/multi/halts \
              /stores/policy/copy /stores/policy/copy-super /stores/policy/halts \
              /stores/super/halts \
              /stores/super/copy-web /stores/super/copy-multi /stores/super/copy-policy \
-    && chown -R www-data:www-data /stores
+    && chown -R pr2obs:pr2obs /stores
 
 COPY observers/super/ /pr2/observers/super
 
@@ -49,7 +66,10 @@ USER www-data
 # work runs as cannot rewrite it, then straight back to that user.
 USER root
 RUN php -r 'require "/pr2/observers/super/container.php";         $e = get_loaded_extensions(); sort($e, SORT_STRING);         file_put_contents("/pr2/.container-baseline", json_encode(array(             "code" => \pr2obs\super\code_manifest(), "extensions" => $e))); '     && chmod 0444 /pr2/.container-baseline
-USER www-data
+# The observer's user, directly. There is no work in this container to separate
+# it from, so nothing here ever changes user and nothing needs the capability
+# to.
+USER pr2obs
 
 # -d auto_prepend_file= is belt and braces here, since this image installs no
 # prepend at all. It is kept so that every observer in the deployment is

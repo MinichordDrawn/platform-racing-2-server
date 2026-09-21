@@ -160,20 +160,68 @@ foreach ($first_party as $name => $body) {
 
 is_same($no_user, array(), 'every service we build names the user it runs as');
 
-ok(count($root_pid1) <= 1, 'at most one service we build runs as root');
+// --- declaring root is not the same as keeping it -------------------------
+//
+// Three services that hold both an observer and the work it watches now
+// declare root, and the reason is the opposite of what the declaration looks
+// like: a process can only stop being one user and become another if it
+// starts with the privilege to do so. They use it once, at the top of the
+// entrypoint, to put the observer on its own user and the work on another --
+// which is what stops the work writing the files its own observer publishes,
+// or signalling it.
+//
+// So the property is not what compose declares. It is what survives the
+// start, and that is decided by the last line of the entrypoint: `exec` as a
+// non-root user replaces the shell, and no root process is left.
+//
+// `cron` is the one that genuinely keeps root, because cron must remain root
+// to go on spawning jobs as somebody else. It holds no observer and no
+// listener.
 
-// --- and nothing that listens runs as root --------------------------------
+$entrypoints = array(
+    'web'    => 'docker/http_server_startup.sh',
+    'multi'  => 'docker/multi_server_startup.sh',
+    'policy' => 'docker/policy_server_startup.sh',
+    'cron'   => 'docker/cron_startup.sh',
+);
 
-// This is the assertion that matters. A service with a published port is
-// reachable, and a reachable service must have no root process in it.
+$keeps_root = array();
+foreach ($root_pid1 as $name) {
+    ok(isset($entrypoints[$name]), "$name's entrypoint is known to this test");
+    if (!isset($entrypoints[$name])) {
+        continue;
+    }
+
+    $sh = file_get_contents(REPO . '/' . $entrypoints[$name]);
+    $last = '';
+    foreach (preg_split('/?
+/', $sh) as $line) {
+        $line = trim($line);
+        if ($line !== '' && $line[0] !== '#' && strpos($line, '#!') !== 0) {
+            $last = $line;
+        }
+    }
+
+    if (preg_match('/^exec setpriv --reuid=(?!root)[A-Za-z0-9_-]+/', $last) !== 1) {
+        $keeps_root[] = $name;
+    }
+}
+
+is_same($keeps_root, array('cron'),
+    'the only service that keeps a root process is the one that has to spawn jobs as others');
+
+// --- and nothing that listens keeps a root process ------------------------
+//
+// The assertion that matters, and the one the change above had to preserve.
+// A service with a published port is reachable, and a reachable service must
+// have no root process left in it.
 $root_and_listening = array();
 foreach ($first_party as $name => $body) {
     $listens = preg_match('/^\s+ports:/m', $body) === 1;
-    $is_root = in_array($name, $root_pid1, true);
-    if ($listens && $is_root) {
+    if ($listens && in_array($name, $keeps_root, true)) {
         $root_and_listening[] = $name;
     }
 }
-is_same($root_and_listening, array(), 'no service that listens runs as root');
+is_same($root_and_listening, array(), 'no service that listens keeps a root process');
 
 t_done();
