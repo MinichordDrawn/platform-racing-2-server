@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -198,5 +199,56 @@ func TestTheRateLimitCannotBeResetByAHeader(t *testing.T) {
 
 	if allowed > 15 {
 		t.Fatalf("%d of 40 requests were allowed through one window", allowed)
+	}
+}
+
+// The janitor is work, and work stops when the ring says stop.
+//
+// It deletes expired level-cache entries on a timer of its own, which ran
+// regardless of gate state -- the one action in this process that continued
+// through a halt. It touches no customer data and is not a way in, so it was
+// recorded rather than ranked; it is fixed because "everything is prevented
+// from working" is either true of this file or it is not.
+func TestTheJanitorStopsWhenTheRingSaysStop(t *testing.T) {
+	stale := &cacheEntry{
+		StatusCode: 200,
+		BodyBase64: "",
+		FetchedAt:  time.Now().UTC().Add(-2 * time.Hour),
+		ExpiresAt:  time.Now().UTC().Add(-time.Hour),
+	}
+
+	for _, tc := range []struct {
+		name    string
+		halt    bool
+		survive bool
+	}{
+		{"a clean ring sweeps", false, false},
+		{"a halted ring does not", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			now := time.Now().UTC()
+			root := cleanStore(t, now)
+			if tc.halt {
+				touch(t, filepath.Join(root, "policy", "halt"))
+			}
+
+			cfg := testGate(root)
+			cfg.CacheDir = t.TempDir()
+			s := newServer(cfg)
+
+			if err := s.cache.Save(routeKindLevels, "levels:1:", stale); err != nil {
+				t.Fatal(err)
+			}
+
+			s.janitorSweep(now)
+
+			_, found, err := s.cache.Get(routeKindLevels, "levels:1:")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if found != tc.survive {
+				t.Fatalf("expected survival=%t, got %t", tc.survive, found)
+			}
+		})
 	}
 }

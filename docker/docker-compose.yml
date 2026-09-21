@@ -97,6 +97,11 @@ services:
     depends_on:
       - mysql
       - pr2hub-proxy
+    # What happens when it stops, stated rather than left to the engine's
+    # default. This container holds the web observer as well as the work, so a
+    # stop takes a ring member with it: the other three raise a halt for the
+    # member that vanished, and what would lift it is the container that died.
+    restart: always
 
   # The scheduler, from the same image as web. It is a service of its own
   # because cron must start as root in order to drop to the unprivileged user
@@ -166,6 +171,10 @@ services:
       - web-halts:/stores/web/halts:ro
     depends_on:
       - mysql
+    # As web. A scheduler that is not running writes no traces, and traces that
+    # stop arriving are a fault in the observer next door -- so a stop here
+    # halts the ring by a route nothing would undo.
+    restart: always
 
   pr2hub-proxy:
     build:
@@ -218,6 +227,10 @@ services:
       - web-copy:/stores/web/copy:ro
       - web-copy-super:/stores/web/copy-super:ro
       - web-halts:/stores/web/halts:ro
+    # Nothing observes this container. Gating it made it a participant, not a
+    # member, so a stop here is a silent loss of the /pr2hub/ route that no
+    # member would report. This policy is the only thing that notices.
+    restart: always
 
   multi:
     build:
@@ -436,6 +449,10 @@ services:
       - web-copy:/stores/web/copy:ro
       - web-copy-super:/stores/web/copy-super
       - web-halts:/stores/web/halts
+    # The one whose absence every other member halts on, and none of them can
+    # lift: what would lift it is this container. It declared no policy at
+    # all, which made the ring's most consequential stop the least handled.
+    restart: always
 
   mysql:
     image: mysql
@@ -477,6 +494,9 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set a root password for the database}
     volumes:
       - mysql-data:/var/lib/mysql
+    # Everything that holds player data. No observer reads this service
+    # (T26), so its coming back is not something the ring would arrange.
+    restart: always
 
   liquibase:
     build:

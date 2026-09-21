@@ -969,7 +969,25 @@ func (s *server) logRequest(r *http.Request, route *proxyRoute, cacheStatus stri
 	log.Print(line)
 }
 
-func startJanitor(ctx context.Context, store *cacheStore) {
+// One sweep of the expired level-cache entries.
+//
+// It asks the gate like everything else here. This used to be the one action
+// in this process that ran regardless of ring state: a timer of its own,
+// deleting files while every request was being refused. It reaches no customer
+// data and is not a way in, so what it could do wrong is small -- but
+// "everything is prevented from working" is either true of this file or it is
+// not, and a sweep is work.
+func (s *server) janitorSweep(now time.Time) {
+	if reason := s.gateReason(now); reason != "" {
+		log.Printf("observer gate: not sweeping the cache. %s", reason)
+		return
+	}
+	if err := s.cache.DeleteExpiredLevelEntries(now); err != nil {
+		log.Printf("level cache cleanup failed: %v", err)
+	}
+}
+
+func (s *server) startJanitor(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Minute)
 	go func() {
 		defer ticker.Stop()
@@ -978,9 +996,7 @@ func startJanitor(ctx context.Context, store *cacheStore) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if err := store.DeleteExpiredLevelEntries(time.Now().UTC()); err != nil {
-					log.Printf("level cache cleanup failed: %v", err)
-				}
+				s.janitorSweep(time.Now().UTC())
 			}
 		}
 	}()
@@ -995,7 +1011,7 @@ func main() {
 	srv := newServer(cfg)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	startJanitor(ctx, srv.cache)
+	srv.startJanitor(ctx)
 
 	log.Printf("starting PR2Hub proxy on %s (upstream=%s)", cfg.ListenAddr, cfg.UpstreamBase)
 	if err := http.ListenAndServe(cfg.ListenAddr, srv); err != nil {
