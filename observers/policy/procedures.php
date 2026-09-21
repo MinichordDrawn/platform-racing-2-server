@@ -566,12 +566,20 @@ function procedure_v(Reader $R, string $A, array $own_entries, int $own_cadence)
 
     // The highest *named* entry must be the highest parsed one, or the
     // highest did not parse.
-    $raw = list_dir($folder) ?? array();
+    //
+    // From procedure C's own listing, not a fresh one. Listing again asks the
+    // question of a later instant than the one the entries were read at, so a
+    // subject that published in between disagreed with itself and the reader
+    // declined to judge it -- publishing a null observation for a member that
+    // was doing nothing worse than being quick. The fastest member was skipped
+    // most often, which is the wrong way round.
+    //
+    // One listing keeps what this is for: an entry that is named but did not
+    // parse still shows up, because `names` holds every heartbeat name the
+    // listing saw and `entries` only those that could be read and parsed.
     $highest_named = 0;
-    foreach ($raw as $n) {
-        if (is_heartbeat_name($n)) {
-            $highest_named = max($highest_named, sequence_of_name($n));
-        }
+    foreach ($c['names'] as $seq) {
+        $highest_named = max($highest_named, $seq);
     }
     if ($highest_named !== $highest) {
         return $result;   // unknown, observed null
