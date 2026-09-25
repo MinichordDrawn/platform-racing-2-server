@@ -7,7 +7,9 @@ class Server extends \chabot\SocketServer
     // Why the ring says stop, or null while it does not. Shared by the
     // listener and every connection on it, because the question is about the
     // container rather than about a connection.
-    public static $halted = null;
+    // SocketDaemon may deliver reads before the first timer. Stay closed
+    // until that timer has actually checked the gate.
+    public static $halted = 'waiting for the first observer gate check';
 
     // The daemon calls this on every listener it holds, roughly every two
     // seconds. It is the only periodic thing this server has, and it is what
